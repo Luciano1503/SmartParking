@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "proyectoestacionamiento",
+      "cwd": "proyectoestacionamiento",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/Pages/main.dart"
+    },
+    {
+      "name": "proyectoestacionamiento (profile mode)",
+      "cwd": "proyectoestacionamiento",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/Pages/main.dart"
+    },
+    {
+      "name": "proyectoestacionamiento (release mode)",
+      "cwd": "proyectoestacionamiento",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/Pages/main.dart"
+    }
+  ]
+}
