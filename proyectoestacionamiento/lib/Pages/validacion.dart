@@ -23,6 +23,9 @@ class _ValidacionPageState extends State<ValidacionPage>
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
+  // 🔥 1. Variable para controlar el estado de carga
+  bool _isLoading = false;
+
   late AnimationController _animController;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideUp;
@@ -91,11 +94,34 @@ class _ValidacionPageState extends State<ValidacionPage>
   }
 
   Future<void> _validarCodigo() async {
+    // 🔥 2. Bloqueamos doble click
+    if (_isLoading) return;
+
+    // Pequeña validación para asegurar que puso los 6 dígitos
+    if (_codigoController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ingresa los 6 dígitos completos")),
+      );
+      return;
+    }
+
+    // 🔥 3. Activamos modo carga
+    setState(() {
+      _isLoading = true;
+    });
+
     final servicio = ServicioAutenticacion();
     final exito = await servicio.verificarCodigo(
       widget.correo,
       _codigoController.text,
     );
+
+    if (!mounted) return;
+
+    // 🔥 4. Desactivamos modo carga
+    setState(() {
+      _isLoading = false;
+    });
 
     if (exito) {
       Navigator.pushReplacement(
@@ -173,6 +199,7 @@ class _ValidacionPageState extends State<ValidacionPage>
                             GradientActionButton(
                               label: "Validar usuario",
                               icon: Icons.verified_rounded,
+                              isLoading: _isLoading, // 🔥 5. Le pasamos el estado
                               onPressed: _validarCodigo,
                             ),
                             const SizedBox(height: 24),

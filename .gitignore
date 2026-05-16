@@ -1,0 +1,24 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / Angular
+**/node_modules/
+**/.angular/cache/
+**/dist/
+
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+**/.flutter-plugins-dependencies
+
+# OS noise
+.DS_Store
+Thumbs.db

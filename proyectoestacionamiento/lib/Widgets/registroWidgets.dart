@@ -173,7 +173,7 @@ class RegisterTitleSection extends StatelessWidget {
           "Crear cuenta",
           style: RegistroStyles.pageTitleStyle,
         ),
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         Text(
           "Paso 1 de 2 — Verificación de correo",
           style: RegistroStyles.pageSubtitleStyle,
@@ -348,12 +348,16 @@ class GradientActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  
+  // 🔥 1. Recibimos la variable isLoading
+  final bool isLoading; 
 
   const GradientActionButton({
     super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.isLoading = false, // 🔥 2. Falso por defecto para que no rompa otros usos
   });
 
   @override
@@ -363,18 +367,33 @@ class GradientActionButton extends StatelessWidget {
       height: 54,
       child: DecoratedBox(
         decoration: RegistroStyles.gradientButtonDecoration,
-        child: ElevatedButton.icon(
+        child: ElevatedButton( // Cambiado de ElevatedButton.icon a ElevatedButton normal para mayor control
           style: RegistroStyles.transparentButtonStyle,
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Colors.white,
-            size: 18,
-          ),
-          label: Text(
-            label,
-            style: RegistroStyles.buttonTextStyle,
-          ),
+          onPressed: isLoading ? () {} : onPressed, // 🔥 3. Bloqueamos el botón si carga
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: RegistroStyles.buttonTextStyle,
+                    ),
+                  ],
+                ),
         ),
       ),
     );

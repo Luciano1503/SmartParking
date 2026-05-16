@@ -17,6 +17,7 @@ dependencies:
   google_maps_flutter: ^2.5.0
   geolocator: ^11.0.0
   http: ^1.2.0   # 👈 agregado para llamadas a la API
+  web_socket_channel: ^3.0.0 # 👈 AGREGADO PARA WEBSOCKETS (Tiempo Real)
 
 dev_dependencies:
   flutter_test:

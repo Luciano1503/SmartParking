@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../Styles/estacionamientosStyles.dart';
+import '../Models/parking_model.dart';
+import '../Pages/mapaEstacionamiento.dart';
 
 class PageTitle extends StatelessWidget {
   const PageTitle({super.key});
@@ -24,10 +26,7 @@ class PageTitle extends StatelessWidget {
 class AffiliatesBadge extends StatelessWidget {
   final int total;
 
-  const AffiliatesBadge({
-    super.key,
-    required this.total,
-  });
+  const AffiliatesBadge({super.key, required this.total});
 
   @override
   Widget build(BuildContext context) {
@@ -61,14 +60,10 @@ class SubHeader extends StatelessWidget {
 }
 
 class ParkingCard extends StatelessWidget {
-  final Map<String, String> empresa;
+  final Estacionamiento empresa; // 🚀 Cambiado de Map a Estacionamiento
   final VoidCallback onTap;
 
-  const ParkingCard({
-    super.key,
-    required this.empresa,
-    required this.onTap,
-  });
+  const ParkingCard({super.key, required this.empresa, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +83,7 @@ class ParkingCard extends StatelessWidget {
                   Center(
                     child: Padding(
                       padding: EstacionamientosStyles.parkingLogoPadding,
-                      child: Image.asset(
-                        empresa["logo"]!,
-                        fit: BoxFit.contain,
-                      ),
+                      child: _buildLogo(empresa.imagenUrl),
                     ),
                   ),
                   Positioned(
@@ -99,10 +91,9 @@ class ParkingCard extends StatelessWidget {
                     right: 10,
                     child: Container(
                       padding: EstacionamientosStyles.tagPadding,
-                      decoration:
-                          EstacionamientosStyles.parkingTagDecoration,
-                      child: Text(
-                        empresa["tag"]!,
+                      decoration: EstacionamientosStyles.parkingTagDecoration,
+                      child: const Text(
+                        "Afiliado", // Puedes hacerlo dinámico si agregas 'tag' al modelo
                         style: EstacionamientosStyles.tagTextStyle,
                       ),
                     ),
@@ -119,7 +110,7 @@ class ParkingCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          empresa["nombre"]!,
+                          empresa.nombre,
                           style: EstacionamientosStyles.parkingNameStyle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -143,7 +134,7 @@ class ParkingCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        empresa["spots"]!,
+                        '${empresa.totalEspacios} espacios',
                         style: EstacionamientosStyles.parkingSpotsStyle,
                       ),
                     ],
@@ -153,7 +144,8 @@ class ParkingCard extends StatelessWidget {
                     width: double.infinity,
                     height: EstacionamientosStyles.cardButtonHeight,
                     child: DecoratedBox(
-                      decoration: EstacionamientosStyles.primaryButtonDecoration,
+                      decoration:
+                          EstacionamientosStyles.primaryButtonDecoration,
                       child: ElevatedButton(
                         style: EstacionamientosStyles.transparentButtonStyle,
                         onPressed: onTap,
@@ -172,15 +164,25 @@ class ParkingCard extends StatelessWidget {
       ),
     );
   }
+
+  // Helper para cargar imagen de red o local
+  Widget _buildLogo(String? url) {
+    if (url != null && url.startsWith('http')) {
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) =>
+            Image.asset('assets/images/utp.png'),
+      );
+    }
+    return Image.asset('assets/images/utp.png');
+  }
 }
 
 class DetailSheet extends StatelessWidget {
-  final Map<String, String> empresa;
+  final Estacionamiento empresa; // 🚀 Cambiado de Map a Estacionamiento
 
-  const DetailSheet({
-    super.key,
-    required this.empresa,
-  });
+  const DetailSheet({super.key, required this.empresa});
 
   @override
   Widget build(BuildContext context) {
@@ -206,10 +208,7 @@ class DetailSheet extends StatelessWidget {
                 height: 64,
                 padding: EstacionamientosStyles.detailHeaderLogoPadding,
                 decoration: EstacionamientosStyles.detailLogoBoxDecoration,
-                child: Image.asset(
-                  empresa["logo"]!,
-                  fit: BoxFit.contain,
-                ),
+                child: _buildDetailLogo(empresa.imagenUrl),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -220,7 +219,7 @@ class DetailSheet extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            empresa["nombre"]!,
+                            empresa.nombre,
                             style: EstacionamientosStyles.detailTitleStyle,
                           ),
                         ),
@@ -235,8 +234,8 @@ class DetailSheet extends StatelessWidget {
                     Container(
                       padding: EstacionamientosStyles.detailTagPadding,
                       decoration: EstacionamientosStyles.detailTagDecoration,
-                      child: Text(
-                        empresa["tag"]!,
+                      child: const Text(
+                        "Institución",
                         style: EstacionamientosStyles.detailTagTextStyle,
                       ),
                     ),
@@ -255,25 +254,19 @@ class DetailSheet extends StatelessWidget {
                 InfoRow(
                   icon: Icons.info_outline_rounded,
                   label: 'Descripción',
-                  value: empresa["descripcion"]!,
-                ),
-                const SheetDivider(),
-                InfoRow(
-                  icon: Icons.business_center_outlined,
-                  label: 'Actividad',
-                  value: empresa["actividad"]!,
+                  value: empresa.descripcion,
                 ),
                 const SheetDivider(),
                 InfoRow(
                   icon: Icons.location_on_outlined,
                   label: 'Dirección',
-                  value: empresa["direccion"]!,
+                  value: empresa.direccion,
                 ),
                 const SheetDivider(),
                 InfoRow(
                   icon: Icons.local_parking_rounded,
                   label: 'Capacidad',
-                  value: empresa["spots"]!,
+                  value: '${empresa.totalEspacios} espacios totales',
                 ),
               ],
             ),
@@ -323,12 +316,14 @@ class DetailSheet extends StatelessWidget {
                   child: DecoratedBox(
                     decoration: EstacionamientosStyles.mapButtonDecoration,
                     child: ElevatedButton.icon(
-                      style:
-                          EstacionamientosStyles.transparentMapButtonStyle,
+                      style: EstacionamientosStyles.transparentMapButtonStyle,
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          EstacionamientosStyles.snackBar(
-                            'Mapa de ${empresa["nombre"]!} próximamente',
+                        Navigator.pop(context); // Cierra el modal
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                MapaEstacionamientoPage(estacionamientoId: empresa.id),
                           ),
                         );
                       },
@@ -350,6 +345,18 @@ class DetailSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildDetailLogo(String? url) {
+    if (url != null && url.startsWith('http')) {
+      return Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) =>
+            Image.asset('assets/images/utp.png'),
+      );
+    }
+    return Image.asset('assets/images/utp.png');
   }
 }
 
@@ -387,15 +394,9 @@ class InfoRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: EstacionamientosStyles.infoLabelStyle,
-                ),
+                Text(label, style: EstacionamientosStyles.infoLabelStyle),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: EstacionamientosStyles.infoValueStyle,
-                ),
+                Text(value, style: EstacionamientosStyles.infoValueStyle),
               ],
             ),
           ),

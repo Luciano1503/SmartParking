@@ -98,6 +98,10 @@ class LoginCard extends StatelessWidget {
   final TextEditingController correoController;
   final TextEditingController passwordController;
   final bool obscurePassword;
+  
+  // 🔥 1. Recibimos el estado de carga desde main.dart
+  final bool isLoading; 
+  
   final VoidCallback onTogglePassword;
   final VoidCallback onLoginPressed;
   final VoidCallback onRegisterPressed;
@@ -107,6 +111,7 @@ class LoginCard extends StatelessWidget {
     required this.correoController,
     required this.passwordController,
     required this.obscurePassword,
+    required this.isLoading, // Lo pedimos en el constructor
     required this.onTogglePassword,
     required this.onLoginPressed,
     required this.onRegisterPressed,
@@ -181,12 +186,13 @@ class LoginCard extends StatelessWidget {
           const SizedBox(height: 28),
           GradientButton(
             label: 'Iniciar sesión',
+            isLoading: isLoading, // 🔥 2. Pasamos el estado al botón
             onPressed: onLoginPressed,
           ),
           const SizedBox(height: 16),
           Center(
             child: TextButton(
-              onPressed: onRegisterPressed,
+              onPressed: isLoading ? null : onRegisterPressed, // Bloquea si está cargando
               style: AppStyles.registerTextButtonStyle,
               child: const Text(
                 '¿No tienes cuenta? Regístrate aquí',
@@ -203,11 +209,15 @@ class LoginCard extends StatelessWidget {
 class GradientButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
+  
+  // 🔥 3. Estado de carga interno en el botón
+  final bool isLoading; 
 
   const GradientButton({
     super.key,
     required this.label,
     required this.onPressed,
+    this.isLoading = false, // Por defecto es false
   });
 
   @override
@@ -219,11 +229,20 @@ class GradientButton extends StatelessWidget {
         decoration: AppStyles.buttonDecoration,
         child: ElevatedButton(
           style: AppStyles.transparentElevatedButtonStyle,
-          onPressed: onPressed,
-          child: Text(
-            label,
-            style: AppStyles.buttonTextStyle,
-          ),
+          onPressed: isLoading ? () {} : onPressed, // Si está cargando, anula el click
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white, // Color del circulito
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: AppStyles.buttonTextStyle,
+                ),
         ),
       ),
     );

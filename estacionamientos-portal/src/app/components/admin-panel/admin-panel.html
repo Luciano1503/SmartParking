@@ -1,0 +1,114 @@
+<div class="min-h-screen bg-[#F4F7FD] p-10">
+    <div class="max-w-6xl mx-auto space-y-12">
+        
+        <!-- HEADER -->
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-[#0F1E3A] text-2xl font-bold mb-1">Panel de Control Administrativo</h1>
+                <p class="text-[#6B7A99] text-sm">Supervisión de solicitudes y estado de hardware SmartParking.</p>
+            </div>
+            <div class="flex gap-4">
+                <div class="bg-white px-4 py-2 rounded-xl border border-[#DDE4F0] shadow-sm text-center">
+                    <p class="text-[10px] text-[#6B7A99] font-bold uppercase">Pendientes</p>
+                    <p class="text-[#1558D6] font-bold text-lg">{{ pendientes.length || 0 }}</p>
+                </div>
+                <div class="bg-white px-4 py-2 rounded-xl border border-[#DDE4F0] shadow-sm text-center">
+                    <p class="text-[10px] text-[#6B7A99] font-bold uppercase">Alertas Sensores</p>
+                    <p class="text-[#EF4444] font-bold text-lg">{{ sensoresInoperativos.length || 0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 1: EMPRESAS PENDIENTES -->
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1.5 h-4 bg-[#1558D6] rounded-full"></div>
+                <h2 class="text-[#0F1E3A] font-bold text-sm uppercase tracking-wider">Validación de Empresas</h2>
+            </div>
+            
+            <div class="bg-white rounded-xl border border-[#DDE4F0] overflow-hidden shadow-sm">
+                <div class="grid grid-cols-4 bg-[#F8FAFC] border-b border-[#DDE4F0] px-6 py-4">
+                    <div class="text-[#6B7A99] text-[10px] font-bold tracking-widest uppercase">Empresa</div>
+                    <div class="text-[#6B7A99] text-[10px] font-bold tracking-widest uppercase">Representante</div>
+                    <div class="text-[#6B7A99] text-[10px] font-bold tracking-widest uppercase">Contacto</div>
+                    <div class="text-[#6B7A99] text-[10px] font-bold tracking-widest uppercase text-right">Acciones</div>
+                </div>
+
+                <div *ngIf="cargandoEmpresas" class="p-10 text-center text-[#6B7A99] animate-pulse text-sm">
+                    Cargando solicitudes...
+                </div>
+
+                <div *ngIf="!cargandoEmpresas && pendientes.length === 0" class="p-10 text-center text-[#6B7A99] text-sm italic">
+                    No hay solicitudes pendientes.
+                </div>
+
+                <div *ngFor="let item of pendientes" class="grid grid-cols-4 items-center px-6 py-4 border-b border-[#DDE4F0] last:border-b-0 hover:bg-[#FAFBFE] transition-colors">
+                    <div class="text-[#0F1E3A] text-sm font-semibold">{{ item.empresa }}</div>
+                    <div class="text-[#374060] text-sm">{{ item.representante }}</div>
+                    <div class="text-[#374060] text-sm font-mono text-xs">{{ item.correo }}</div>
+                    <div class="flex justify-end gap-3">
+                        <button (click)="procesarSolicitud(item.id, 'aprobar')" class="bg-[#10B981] hover:bg-[#059669] text-white text-[11px] font-bold px-4 py-2 rounded-lg transition-all shadow-sm">Aprobar</button>
+                        <button (click)="procesarSolicitud(item.id, 'rechazar')" class="bg-white border border-[#EF4444] text-[#EF4444] hover:bg-[#FEF2F2] text-[11px] font-bold px-4 py-2 rounded-lg transition-all">Rechazar</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN 2: SENSORES INOPERATIVOS -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-1.5 h-4 bg-[#EF4444] rounded-full"></div>
+                    <h2 class="text-[#0F1E3A] font-bold text-sm uppercase tracking-wider">Sensores No Operativos (Mantenimiento)</h2>
+                </div>
+                <span class="text-[10px] text-[#EF4444] font-black bg-[#FEF2F2] px-3 py-1 rounded-full animate-pulse border border-[#FEE2E2]">ACCIÓN INMEDIATA REQUERIDA</span>
+            </div>
+            
+            <div class="bg-white rounded-xl border border-[#FEE2E2] overflow-hidden shadow-sm">
+                <!-- GRID DE 4 COLUMNAS (Estaba en 5 y rompía el diseño) -->
+                <div class="grid grid-cols-4 bg-[#FFFBFB] border-b border-[#FEE2E2] px-6 py-4">
+                    <div class="text-[#991B1B] text-[10px] font-bold tracking-widest uppercase">Estacionamiento / Sede</div>
+                    <div class="text-[#991B1B] text-[10px] font-bold tracking-widest uppercase text-center">Ubicación Exacta</div>
+                    <div class="text-[#991B1B] text-[10px] font-bold tracking-widest uppercase text-center">Código Sensor</div>
+                    <div class="text-[#991B1B] text-[10px] font-bold tracking-widest uppercase text-center">Estado Físico</div>
+                </div>
+
+                <div *ngIf="cargandoSensores" class="p-10 text-center text-[#991B1B] animate-pulse text-sm">
+                    Escaneando red de sensores...
+                </div>
+
+                <div *ngIf="!cargandoSensores && sensoresInoperativos.length === 0" class="p-10 text-center text-[#059669] bg-[#F0FDF4] text-sm font-medium">
+                    ✅ Todos los sensores en la red están operando correctamente.
+                </div>
+
+                <!-- DIBUJO DE LOS SENSORES DAÑADOS -->
+                <div *ngFor="let sensor of sensoresInoperativos" class="grid grid-cols-4 items-center px-6 py-4 border-b border-[#FEE2E2] last:border-b-0 hover:bg-[#FFF5F5] transition-colors">
+                    
+                    <div class="flex flex-col">
+                        <span class="text-[#0F1E3A] text-sm font-bold">{{ sensor.estacionamiento }}</span>
+                        <span class="text-[#6B7A99] text-[11px]">{{ sensor.direccion }}</span>
+                    </div>
+
+                    <div class="text-center">
+                        <span class="bg-[#F4F7FD] text-[#0F1E3A] px-2 py-1 rounded border border-[#DDE4F0] text-[10px] font-bold uppercase">
+                            {{ sensor.nivel }} • {{ sensor.zona }} • {{ sensor.espacio }}
+                        </span>
+                    </div>
+
+                    <div class="text-center font-mono text-xs text-[#374060] font-bold">
+                        {{ sensor.codigo_hardware }}
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF2F2] border border-[#FEE2E2]">
+                            <div class="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping"></div>
+                            <span class="text-[#B91C1C] text-[10px] font-black italic">NO OPERATIVO</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+        
+    </div>
+</div>

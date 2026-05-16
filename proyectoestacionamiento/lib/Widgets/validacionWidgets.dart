@@ -353,12 +353,16 @@ class GradientActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  
+  // 🔥 1. Agregado el indicador de carga
+  final bool isLoading; 
 
   const GradientActionButton({
     super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.isLoading = false, // 🔥 2. Falso por defecto
   });
 
   @override
@@ -368,18 +372,33 @@ class GradientActionButton extends StatelessWidget {
       height: 54,
       child: DecoratedBox(
         decoration: ValidacionStyles.gradientButtonDecoration,
-        child: ElevatedButton.icon(
+        child: ElevatedButton( // Cambiado a ElevatedButton normal para customizar el Row
           style: ValidacionStyles.transparentButtonStyle,
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Colors.white,
-            size: 18,
-          ),
-          label: Text(
-            label,
-            style: ValidacionStyles.buttonTextStyle,
-          ),
+          onPressed: isLoading ? () {} : onPressed, // 🔥 3. Bloqueo
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: ValidacionStyles.buttonTextStyle,
+                    ),
+                  ],
+                ),
         ),
       ),
     );

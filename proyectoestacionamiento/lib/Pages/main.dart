@@ -34,6 +34,10 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
   bool _obscurePassword = true;
+  
+  // 🔥 1. NUEVA VARIABLE: Controla el estado de carga
+  bool _isLoading = false; 
+
   late AnimationController _animController;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideUp;
@@ -82,8 +86,11 @@ class _LoginPageState extends State<LoginPage>
     });
   }
 
-  /// Nueva función de login real
+  /// 🔥 2. Lógica de validación, estado de carga y doble pulsación
   Future<void> _loginUsuario() async {
+    // Si ya está cargando, ignora pulsaciones adicionales
+    if (_isLoading) return; 
+
     final correo = _correoController.text.trim();
     final contrasenia = _passwordController.text.trim();
 
@@ -94,6 +101,11 @@ class _LoginPageState extends State<LoginPage>
       return;
     }
 
+    // Activamos el estado de "Cargando..."
+    setState(() {
+      _isLoading = true;
+    });
+
     final servicio = ServicioAutenticacion();
     final data = await servicio.login(correo, contrasenia);
 
@@ -101,15 +113,23 @@ class _LoginPageState extends State<LoginPage>
       // Guardamos datos en la sesión
       SesionUsuario.usuario = data;
 
-      // Redirigimos al mapa
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MapaPage()),
-      );
+      // 🔥 3. Redirección directa al mapa (Auto-Login en acción)
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MapaPage()),
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Correo o contraseña incorrectos")),
-      );
+      // Si falla, DESACTIVAMOS el estado de carga para que pueda volver a intentar
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Correo o contraseña incorrectos")),
+        );
+      }
     }
   }
 
@@ -172,6 +192,7 @@ class _LoginPageState extends State<LoginPage>
                         correoController: _correoController,
                         passwordController: _passwordController,
                         obscurePassword: _obscurePassword,
+                        isLoading: _isLoading,
                         onTogglePassword: _togglePasswordVisibility,
                         onLoginPressed: _loginUsuario,
                         onRegisterPressed: _goToRegister,

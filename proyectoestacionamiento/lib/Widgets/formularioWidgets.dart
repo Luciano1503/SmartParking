@@ -222,16 +222,99 @@ class PasswordRequirementsCard extends StatelessWidget {
   }
 }
 
+// 🔥 NUEVO: Grupo de Inputs para la Placa (ABC - 123)
+class PlacaInputGroup extends StatelessWidget {
+  final List<TextEditingController> controllers;
+  final List<FocusNode> focusNodes;
+  final void Function(String value, int index) onChanged;
+
+  const PlacaInputGroup({
+    super.key,
+    required this.controllers,
+    required this.focusNodes,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        PlacaBox(controller: controllers[0], focusNode: focusNodes[0], onChanged: (v) => onChanged(v, 0)),
+        PlacaBox(controller: controllers[1], focusNode: focusNodes[1], onChanged: (v) => onChanged(v, 1)),
+        PlacaBox(controller: controllers[2], focusNode: focusNodes[2], onChanged: (v) => onChanged(v, 2)),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.0),
+          child: Text(
+            "-",
+            style: TextStyle(fontSize: 28, color: FormularioStyles.primaryCyan, fontWeight: FontWeight.bold),
+          ),
+        ),
+        PlacaBox(controller: controllers[3], focusNode: focusNodes[3], onChanged: (v) => onChanged(v, 3)),
+        PlacaBox(controller: controllers[4], focusNode: focusNodes[4], onChanged: (v) => onChanged(v, 4)),
+        PlacaBox(controller: controllers[5], focusNode: focusNodes[5], onChanged: (v) => onChanged(v, 5)),
+      ],
+    );
+  }
+}
+
+// 🔥 NUEVO: Cajita individual para la Placa
+class PlacaBox extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  const PlacaBox({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 45,
+      height: 55,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        textCapitalization: TextCapitalization.characters, // Fuerza mayúsculas
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          counterText: "",
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.08),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: FormularioStyles.primaryCyan, width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 🔥 ACTUALIZADO: Botón con estado de carga
 class GradientButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   const GradientButton({
     super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   @override
@@ -241,14 +324,29 @@ class GradientButton extends StatelessWidget {
       height: FormularioStyles.buttonHeight,
       child: DecoratedBox(
         decoration: FormularioStyles.gradientButtonDecoration,
-        child: ElevatedButton.icon(
+        child: ElevatedButton(
           style: FormularioStyles.transparentElevatedIconButtonStyle,
-          onPressed: onPressed,
-          icon: Icon(icon, color: Colors.white, size: 20),
-          label: Text(
-            label,
-            style: FormularioStyles.buttonTextStyle,
-          ),
+          onPressed: isLoading ? () {} : onPressed,
+          child: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: FormularioStyles.buttonTextStyle,
+                    ),
+                  ],
+                ),
         ),
       ),
     );

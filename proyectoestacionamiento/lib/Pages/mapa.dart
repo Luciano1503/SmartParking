@@ -29,7 +29,7 @@ class _MapaPageState extends State<MapaPage> {
     setState(() => _selectedIndex = index);
   }
 
-  // ── Mapa ───────────────────────────────────────────────────
+// ── Mapa ───────────────────────────────────────────────────
   GoogleMapController? _mapController;
   Position? _currentPosition;
   final TextEditingController _searchController = TextEditingController();
@@ -40,6 +40,19 @@ class _MapaPageState extends State<MapaPage> {
   final String _apiKey = "AIzaSyDU9V_Db6UdM8vuvfQwSghwRdT3v-cOklk";
   final Set<Marker> _markers = {};
 
+  // ── FIX 1: Helper seguro para setState ──────────────────
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) setState(fn);
+  }
+
+  // ── FIX 2: Helper seguro para SnackBar ──────────────────
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      MapaStyles.buildSnackBar(message),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,57 +61,77 @@ class _MapaPageState extends State<MapaPage> {
 
   @override
   void dispose() {
+    _mapController?.dispose(); // FIX: disponer el controller del mapa
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _checkUbicacion() async {
-    setState(() => _locationLoading = true);
+    _safeSetState(() => _locationLoading = true);
 
-    bool serviceEnabled;
-    LocationPermission permission;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!mounted) return;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showSnackBar("Por favor, activa tu ubicación para usar este apartado.");
-      setState(() => _locationLoading = false);
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showSnackBar("Permiso de ubicación denegado. Actívalo para continuar.");
-        setState(() => _locationLoading = false);
+      if (!serviceEnabled) {
+        _showSnackBar("Por favor, activa tu ubicación para usar este apartado.");
+        _safeSetState(() => _locationLoading = false);
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      _showSnackBar(
-        "Permiso de ubicación denegado permanentemente. Actívalo desde ajustes.",
+      var permission = await Geolocator.checkPermission();
+      if (!mounted) return;
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (!mounted) return;
+
+        if (permission == LocationPermission.denied) {
+          _showSnackBar("Permiso de ubicación denegado.");
+          _safeSetState(() => _locationLoading = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showSnackBar("Activa el permiso de ubicación desde ajustes.");
+        _safeSetState(() => _locationLoading = false);
+        return;
+      }
+
+      // FIX 3: Timeout para que no se cuelgue esperando GPS
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception("Tiempo de espera agotado al obtener ubicación."),
       );
-      setState(() => _locationLoading = false);
-      return;
+
+      if (!mounted) return;
+
+      _safeSetState(() {
+        _currentPosition = position;
+        _locationLoading = false;
+        // FIX 4: Limpiar marcador anterior antes de añadir el nuevo
+        _markers.removeWhere((m) => m.markerId.value == "usuario");
+        _markers.add(
+          Marker(
+            markerId: const MarkerId("usuario"),
+            position: LatLng(position.latitude, position.longitude),
+            infoWindow: const InfoWindow(title: "Tu ubicación"),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ),
+        );
+      });
+
+      _showSnackBar("Ubicación detectada correctamente.");
+
+    } catch (e) {
+      // FIX 5: Captura cualquier error inesperado → nunca crashea
+      if (!mounted) return;
+      _safeSetState(() => _locationLoading = false);
+      _showSnackBar("Error al obtener ubicación: ${e.toString().replaceAll('Exception: ', '')}");
     }
-
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-
-    setState(() {
-      _currentPosition = position;
-      _locationLoading = false;
-    });
-
-    _showSnackBar("Ubicación detectada correctamente.");
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      MapaStyles.buildSnackBar(message),
-    );
   }
 
   Future<void> _buscarLugar() async {
@@ -109,46 +142,61 @@ class _MapaPageState extends State<MapaPage> {
       return;
     }
 
-    setState(() => _isSearching = true);
+    _safeSetState(() => _isSearching = true);
 
     final url = Uri.parse(
-      "https://maps.googleapis.com/maps/api/geocode/json?address=$query&key=$_apiKey",
+      "https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(query)}&key=$_apiKey",
     );
 
     try {
-      final response = await http.get(url);
+      // FIX 6: Timeout en la búsqueda para que no se quede colgado
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception("La búsqueda tardó demasiado. Verifica tu conexión."),
+      );
+
+      if (!mounted) return;
+
       final data = json.decode(response.body);
 
       if (data["status"] == "OK" && data["results"].isNotEmpty) {
         final location = data["results"][0]["geometry"]["location"];
-        final lat = location["lat"];
-        final lng = location["lng"];
+        final lat = (location["lat"] as num).toDouble();
+        final lng = (location["lng"] as num).toDouble();
 
         _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15),
         );
 
-        setState(() {
+        _safeSetState(() {
+          // FIX 7: Reemplazar marcador de búsqueda anterior en vez de acumular
+          _markers.removeWhere((m) => m.markerId.value == "busqueda");
           _markers.add(
             Marker(
               markerId: const MarkerId("busqueda"),
               position: LatLng(lat, lng),
               infoWindow: InfoWindow(title: query),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueRed,
-              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             ),
           );
         });
 
         _showSnackBar("Ubicación encontrada: $query");
       } else {
-        _showSnackBar("No se encontró la dirección: $query");
+        // FIX 8: Mostrar el status real de la API para debug
+        final status = data["status"] ?? "UNKNOWN";
+        _showSnackBar(
+          status == "ZERO_RESULTS"
+              ? "No se encontró: $query"
+              : "Error de búsqueda ($status). Intenta de nuevo.",
+        );
       }
     } catch (e) {
-      _showSnackBar("Error al buscar dirección: $e");
+      if (!mounted) return;
+      _showSnackBar(e.toString().replaceAll('Exception: ', ''));
     } finally {
-      setState(() => _isSearching = false);
+      // FIX 9: finally garantiza que _isSearching SIEMPRE se resetea
+      _safeSetState(() => _isSearching = false);
     }
   }
 
@@ -163,25 +211,18 @@ class _MapaPageState extends State<MapaPage> {
     }
   }
 
+  // FIX 10: _onMapCreated ya no añade el marcador (lo hace _checkUbicacion)
+  // Solo mueve la cámara al usuario si ya tenemos posición
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    if (_currentPosition == null) return;
-
-    setState(() {
-      _markers.add(
-        Marker(
-          markerId: const MarkerId("usuario"),
-          position: LatLng(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
-          infoWindow: const InfoWindow(title: "Tu ubicación"),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
+    if (_currentPosition != null) {
+      controller.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          15,
         ),
       );
-    });
+    }
   }
 
   // ── Páginas de los tabs ────────────────────────────────────

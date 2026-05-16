@@ -4,7 +4,7 @@ import '../models/usuario.dart';
 import 'sesion_usuario.dart';
 
 class ServicioAutenticacion {
-  final String baseUrl = "http://10.0.2.2:8000";
+  final String baseUrl = "http://10.131.131.148:8000";
 
   /// Registro de usuario (solo correo)
   Future<bool> registrarUsuario(String correo) async {
