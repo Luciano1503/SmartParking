@@ -1,5 +1,5 @@
-from Database.session import db_cursor
-from Repositories.parking_repository import ParkingRepository
+from database.session import db_cursor
+from repositories.parking_repository import ParkingRepository
 
 
 class ParkingService:

@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from Services.parking_service import ParkingService
+from services.parking_service import ParkingService
 
 router = APIRouter(prefix="/parking", tags=["Parking"])
 

@@ -1,6 +1,6 @@
-from Database.session import db_cursor
-from Repositories.admin_repository import AdminRepository
-from Services.email_service import (
+from database.session import db_cursor
+from repositories.admin_repository import AdminRepository
+from services.email_service import (
     enviar_confirmacion_aprobacion,
     enviar_rechazo_empresa,
 )

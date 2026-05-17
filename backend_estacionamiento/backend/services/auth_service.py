@@ -1,13 +1,13 @@
 import random
 from datetime import datetime, timedelta
 
-from Database.session import db_cursor
-from Repositories.auth_repository import AuthRepository
-from Services.email_service import (
+from database.session import db_cursor
+from repositories.auth_repository import AuthRepository
+from services.email_service import (
     enviar_aviso_empresa,
     enviar_codigo,
 )
-from Services.security_service import SecurityService
+from services.security_service import SecurityService
 
 
 class AuthService:

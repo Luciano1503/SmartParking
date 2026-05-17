@@ -6,9 +6,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 
-from Database.session import db_cursor
-from Routes import auth, parking
-from Services.realtime_service import manager
+from database.session import db_cursor
+from routes import auth, parking
+from services.realtime_service import manager
 
 app = FastAPI()
 _realtime_db_task: asyncio.Task | None = None

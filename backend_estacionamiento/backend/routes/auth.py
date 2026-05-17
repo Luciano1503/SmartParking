@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException
 
-from Models.usuario import (
+from models.usuario import (
     EmpresaRegistro,
     UsuarioFormulario,
     UsuarioLogin,
     UsuarioRegistro,
     UsuarioVerificacion,
 )
-from Services.admin_service import AdminService
-from Services.auth_service import AuthService
+from services.admin_service import AdminService
+from services.auth_service import AuthService
 
 router = APIRouter()
 
