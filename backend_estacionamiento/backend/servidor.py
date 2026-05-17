@@ -10,6 +10,8 @@ from database.session import db_cursor
 from routes import auth, parking
 from services.realtime_service import manager
 
+APP_VERSION = "railway-path-fix-2026-05-17"
+
 app = FastAPI()
 _realtime_db_task: asyncio.Task | None = None
 
@@ -24,6 +26,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def start_realtime_db_watcher():
+    print(f"[SmartParking] Backend version: {APP_VERSION}")
     global _realtime_db_task
     if _realtime_db_task is None or _realtime_db_task.done():
         _realtime_db_task = asyncio.create_task(_watch_parking_state_changes())
@@ -90,7 +93,10 @@ def _fetch_parking_state_changes(last_seen: datetime) -> list[dict]:
 
 @app.get("/")
 def root():
-    return {"mensaje": "Backend de SmartParking Online con WebSockets"}
+    return {
+        "mensaje": "Backend de SmartParking Online con WebSockets",
+        "version": APP_VERSION,
+    }
 
 
 @app.websocket("/ws/parking")
