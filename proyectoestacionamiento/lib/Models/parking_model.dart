@@ -17,12 +17,12 @@ class Estacionamiento {
 
   factory Estacionamiento.fromJson(Map<String, dynamic> json) {
     return Estacionamiento(
-      id: json['id'],
-      nombre: json['nombre'],
-      descripcion: json['descripcion'],
-      direccion: json['direccion'],
-      imagenUrl: json['imagen_url'],
-      totalEspacios: json['total_espacios'] ?? 0,
+      id: json['id'] as int,
+      nombre: json['nombre'] as String,
+      descripcion: json['descripcion'] as String,
+      direccion: json['direccion'] as String,
+      imagenUrl: json['imagen_url'] as String?,
+      totalEspacios: (json['total_espacios'] as num?)?.toInt() ?? 0,
     );
   }
 }

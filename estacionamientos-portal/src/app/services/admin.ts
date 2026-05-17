@@ -2,22 +2,29 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { API_CONFIG } from '../core/api.config';
+import { InoperativeSensor, PendingCompany } from '../models/admin.models';
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AdminService {
-  // Asegúrate de que este puerto coincida con tu FastAPI
-  private API_URL = 'http://localhost:8000/admin'; 
+  constructor(private readonly http: HttpClient) {}
 
-  constructor(private http: HttpClient) { }
-
-  // Obtiene las empresas con verificado = FALSE
-  getPendientes(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.API_URL}/pendientes`);
+  getPendientes(): Observable<PendingCompany[]> {
+    return this.http.get<PendingCompany[]>(`${API_CONFIG.baseUrl}/admin/pendientes`);
   }
 
-  // Ejecuta la aprobación o rechazo
-  gestionarSolicitud(usuarioId: number, accion: 'aprobar' | 'rechazar'): Observable<any> {
-    return this.http.post(`${this.API_URL}/aprobar/${usuarioId}?accion=${accion}`, {});
+  getSensoresInoperativos(): Observable<InoperativeSensor[]> {
+    return this.http.get<InoperativeSensor[]>(
+      `${API_CONFIG.baseUrl}/admin/sensores-inoperativos`,
+    );
+  }
+
+  gestionarSolicitud(usuarioId: number, accion: 'aprobar' | 'rechazar'): Observable<{ mensaje?: string }> {
+    return this.http.post<{ mensaje?: string }>(
+      `${API_CONFIG.baseUrl}/admin/aprobar/${usuarioId}?accion=${accion}`,
+      {},
+    );
   }
 }

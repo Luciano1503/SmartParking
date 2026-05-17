@@ -1,9 +1,15 @@
 import os
+from pathlib import Path
+
 import psycopg2
+from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
+
+ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 
 
 def get_connection():
+    load_dotenv(ENV_PATH)
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
         database=os.getenv("DB_NAME", "ProyectoIntegrador"),

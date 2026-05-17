@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'estacionamientos.dart';
-import '../Styles/acercadeStyles.dart';
-import '../Widgets/acercadeWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/acercade_styles.dart';
+import '../Widgets/acercade_widgets.dart';
 
 class AcercaDePage extends StatelessWidget {
   const AcercaDePage({super.key});
@@ -31,70 +32,79 @@ class AcercaDePage extends StatelessWidget {
                   padding: AcercaDeStyles.brandCardOuterPadding,
                   child: BrandIntroCard(),
                 ),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.statsRowPadding,
                   child: Row(
                     children: [
                       Expanded(
-                        child: StatCard(value: '+500', label: 'Espacios\nafiliados'),
+                        child: StatCard(
+                          value: '+500',
+                          label: context.tr('about.affiliated_spaces'),
+                        ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: StatCard(value: '24/7', label: 'Disponible\nsiempre'),
+                        child: StatCard(
+                          value: '24/7',
+                          label: context.tr('about.always_available'),
+                        ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: StatCard(value: '98%', label: 'Clientes\nsatisfechos'),
+                        child: StatCard(
+                          value: '98%',
+                          label: context.tr('about.satisfied_customers'),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.sectionTopPadding,
-                  child: SectionLabel(label: 'Lo que ofrecemos'),
+                  child: SectionLabel(label: context.tr('about.offerings')),
                 ),
                 const SizedBox(height: 14),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.horizontalSectionPadding,
                   child: OfferImageBanner(
                     imagePath: 'assets/images/estacionamiento.jpg',
-                    text: 'Estacionamientos inteligentes en tiempo real',
+                    text: context.tr('about.smart_parking'),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.horizontalSectionPadding,
                   child: Column(
                     children: [
                       FeatureRow(
                         icon: Icons.map_outlined,
-                        title: 'Mapas en tiempo real',
-                        subtitle: 'Visualiza disponibilidad al instante desde la app',
+                        title: context.tr('about.realtime_maps'),
+                        subtitle: context.tr('about.realtime_maps_subtitle'),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       FeatureRow(
                         icon: Icons.history_rounded,
-                        title: 'Historial de uso',
-                        subtitle: 'Consulta tus ingresos y egresos cuando quieras',
+                        title: context.tr('about.history'),
+                        subtitle: context.tr('about.history_subtitle'),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       FeatureRow(
                         icon: Icons.security_rounded,
-                        title: 'Seguridad garantizada',
-                        subtitle: 'Acceso controlado y monitoreo constante 24/7',
+                        title: context.tr('about.security'),
+                        subtitle: context.tr('about.security_subtitle'),
                       ),
                     ],
                   ),
                 ),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.techSectionPadding,
-                  child: SectionLabel(label: 'Nuestra tecnología'),
+                  child: SectionLabel(label: context.tr('about.technology')),
                 ),
-                const Padding(
+                Padding(
                   padding: AcercaDeStyles.horizontalSectionPadding,
                   child: TechImageBanner(
                     imagePath: 'assets/images/smartparking.jpg',
-                    text: 'Una sola app para gestionar todo',
+                    text: context.tr('about.one_app'),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -105,7 +115,7 @@ class AcercaDePage extends StatelessWidget {
                 Padding(
                   padding: AcercaDeStyles.ctaPadding,
                   child: GradientCtaButton(
-                    label: 'Ver estacionamientos',
+                    label: context.tr('about.view_parking'),
                     icon: Icons.local_parking_rounded,
                     onPressed: () {
                       Navigator.push(

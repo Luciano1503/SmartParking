@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:proyectoestacionamiento/Pages/mapa.dart';
 import 'registro.dart';
-import '../Styles/mainStyles.dart';
-import '../Widgets/mainWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Core/app_preferences.dart';
+import '../Styles/main_styles.dart';
+import '../Widgets/main_widgets.dart';
+import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
 import '../Services/sesion_usuario.dart';
 
@@ -15,11 +19,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SmartParking Solutions',
-      theme: AppStyles.appTheme,
-      home: const LoginPage(),
+    return AnimatedBuilder(
+      animation: AppPreferences.instance,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'SmartParking Solutions',
+        theme: AppStyles.lightTheme,
+        darkTheme: AppStyles.darkTheme,
+        themeMode: AppPreferences.instance.themeMode,
+        locale: AppPreferences.instance.locale,
+        supportedLocales: const [Locale('es'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        builder: (context, child) =>
+            AppPreferencesScope(child: child ?? const SizedBox.shrink()),
+        home: const LoginPage(),
+      ),
     );
   }
 }
@@ -33,10 +51,10 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
+  final ServicioAutenticacion _authService = const ServicioAutenticacion();
   bool _obscurePassword = true;
-  
-  // 🔥 1. NUEVA VARIABLE: Controla el estado de carga
-  bool _isLoading = false; 
+
+  bool _isLoading = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeIn;
@@ -54,20 +72,15 @@ class _LoginPageState extends State<LoginPage>
       duration: AppStyles.animationDuration,
     );
 
-    _fadeIn = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    );
+    _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
 
-    _slideUp = Tween<Offset>(
-      begin: AppStyles.slideBeginOffset,
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _slideUp =
+        Tween<Offset>(
+          begin: AppStyles.slideBeginOffset,
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
 
     _animController.forward();
   }
@@ -86,34 +99,29 @@ class _LoginPageState extends State<LoginPage>
     });
   }
 
-  /// 🔥 2. Lógica de validación, estado de carga y doble pulsación
   Future<void> _loginUsuario() async {
     // Si ya está cargando, ignora pulsaciones adicionales
-    if (_isLoading) return; 
+    if (_isLoading) return;
 
     final correo = _correoController.text.trim();
     final contrasenia = _passwordController.text.trim();
 
     if (correo.isEmpty || contrasenia.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Ingrese correo y contraseña")),
+        SnackBar(content: Text(context.tr('login.empty_credentials'))),
       );
       return;
     }
 
-    // Activamos el estado de "Cargando..."
     setState(() {
       _isLoading = true;
     });
 
-    final servicio = ServicioAutenticacion();
-    final data = await servicio.login(correo, contrasenia);
+    final data = await _authService.login(correo, contrasenia);
 
     if (data != null) {
-      // Guardamos datos en la sesión
       SesionUsuario.usuario = data;
 
-      // 🔥 3. Redirección directa al mapa (Auto-Login en acción)
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -121,13 +129,12 @@ class _LoginPageState extends State<LoginPage>
         );
       }
     } else {
-      // Si falla, DESACTIVAMOS el estado de carga para que pueda volver a intentar
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Correo o contraseña incorrectos")),
+          SnackBar(content: Text(context.tr('login.invalid_credentials'))),
         );
       }
     }
@@ -136,9 +143,7 @@ class _LoginPageState extends State<LoginPage>
   void _goToRegister() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const RegisterPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const RegisterPage()),
     );
   }
 
@@ -151,26 +156,17 @@ class _LoginPageState extends State<LoginPage>
           Positioned(
             top: -80,
             right: -80,
-            child: GlowCircle(
-              size: 280,
-              color: AppStyles.glowCyanStrong,
-            ),
+            child: GlowCircle(size: 280, color: AppStyles.glowCyanStrong),
           ),
           Positioned(
             bottom: 60,
             left: -60,
-            child: GlowCircle(
-              size: 200,
-              color: AppStyles.glowBlueSoft,
-            ),
+            child: GlowCircle(size: 200, color: AppStyles.glowBlueSoft),
           ),
           Positioned(
             top: 200,
             left: 40,
-            child: GlowCircle(
-              size: 80,
-              color: AppStyles.glowCyanLight,
-            ),
+            child: GlowCircle(size: 80, color: AppStyles.glowCyanLight),
           ),
           Center(
             child: SingleChildScrollView(
@@ -202,6 +198,11 @@ class _LoginPageState extends State<LoginPage>
                 ),
               ),
             ),
+          ),
+          const Positioned(
+            top: 10,
+            right: 12,
+            child: SafeArea(child: PreferencesControls(compact: true)),
           ),
         ],
       ),

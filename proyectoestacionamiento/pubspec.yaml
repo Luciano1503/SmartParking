@@ -10,7 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.18.0
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
   cupertino_icons: ^1.0.8
 
   # Paquetes necesarios para el mapa y ubicación

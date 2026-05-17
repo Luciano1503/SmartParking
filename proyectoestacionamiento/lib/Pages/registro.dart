@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'validacion.dart';
-import '../Styles/registroStyles.dart';
-import '../Widgets/registroWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/registro_styles.dart';
+import '../Widgets/registro_widgets.dart';
+import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -12,9 +14,10 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final ServicioAutenticacion _authService = const ServicioAutenticacion();
   final TextEditingController correoController = TextEditingController();
-  
-  bool _isLoading = false; 
+
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -31,18 +34,12 @@ class _RegisterPageState extends State<RegisterPage> {
           Positioned(
             top: -60,
             left: -80,
-            child: GlowCircle(
-              size: 260,
-              color: RegistroStyles.glowCyan,
-            ),
+            child: GlowCircle(size: 260, color: RegistroStyles.glowCyan),
           ),
           Positioned(
             bottom: 80,
             right: -60,
-            child: GlowCircle(
-              size: 200,
-              color: RegistroStyles.glowBlue,
-            ),
+            child: GlowCircle(size: 200, color: RegistroStyles.glowBlue),
           ),
           SafeArea(
             child: Column(
@@ -65,21 +62,21 @@ class _RegisterPageState extends State<RegisterPage> {
                         const SizedBox(height: 28),
                         const RegisterInfoBanner(),
                         const SizedBox(height: 28),
-                        RegisterEmailCard(
-                          controller: correoController,
-                        ),
+                        RegisterEmailCard(controller: correoController),
                         const SizedBox(height: 32),
                         GradientActionButton(
-                          label: "Enviar código de verificación",
+                          label: context.tr('register.send_code'),
                           icon: Icons.send_rounded,
-                          isLoading: _isLoading, 
+                          isLoading: _isLoading,
                           onPressed: () async {
                             if (_isLoading) return;
 
                             final correo = correoController.text.trim();
                             if (correo.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Por favor ingresa un correo")),
+                                SnackBar(
+                                  content: Text(context.tr('register.enter_email')),
+                                ),
                               );
                               return;
                             }
@@ -88,10 +85,11 @@ class _RegisterPageState extends State<RegisterPage> {
                               _isLoading = true;
                             });
 
-                            final servicio = ServicioAutenticacion();
-                            final exito = await servicio.registrarUsuario(correo);
+                            final exito = await _authService.registrarUsuario(
+                              correo,
+                            );
 
-                            if (!mounted) return;
+                            if (!context.mounted) return;
 
                             setState(() {
                               _isLoading = false;
@@ -101,15 +99,14 @@ class _RegisterPageState extends State<RegisterPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => ValidacionPage(
-                                    correo: correo,
-                                  ),
+                                  builder: (context) =>
+                                      ValidacionPage(correo: correo),
                                 ),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Error al registrar usuario. Intenta nuevamente."),
+                                SnackBar(
+                                  content: Text(context.tr('register.error')),
                                 ),
                               );
                             }
@@ -122,7 +119,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               Navigator.pop(context);
                             },
                             child: Text(
-                              "¿Ya tienes una cuenta? Inicia sesión",
+                              context.tr('register.already_account'),
                               style: RegistroStyles.loginHintTextStyle,
                             ),
                           ),
@@ -134,6 +131,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ],
             ),
+          ),
+          const Positioned(
+            top: 10,
+            right: 12,
+            child: SafeArea(child: PreferencesControls(compact: true)),
           ),
         ],
       ),

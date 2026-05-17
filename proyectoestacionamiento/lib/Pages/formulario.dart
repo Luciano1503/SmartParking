@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../Styles/formularioStyles.dart';
-import '../Widgets/formularioWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/formulario_styles.dart';
+import '../Widgets/formulario_widgets.dart';
+import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
-import '../Services/sesion_usuario.dart'; 
-import 'package:proyectoestacionamiento/Pages/mapa.dart'; 
+import '../Services/sesion_usuario.dart';
+import 'package:proyectoestacionamiento/Pages/mapa.dart';
 
 class FormularioPage extends StatefulWidget {
   final String correo;
@@ -16,6 +18,7 @@ class FormularioPage extends StatefulWidget {
 }
 
 class _FormularioPageState extends State<FormularioPage> {
+  final ServicioAutenticacion _authService = const ServicioAutenticacion();
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _apellidoController = TextEditingController();
@@ -23,15 +26,18 @@ class _FormularioPageState extends State<FormularioPage> {
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _modeloController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
-  // 🔥 1. Controladores y Nodos de Foco para las 6 cajitas de la Placa
-  final List<TextEditingController> _placaControllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _placaControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _placaFocusNodes = List.generate(6, (_) => FocusNode());
 
   DateTime? _selectedDate;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  final bool _obscurePassword = true;
+  final bool _obscureConfirmPassword = true;
 
   bool _isLoading = false;
 
@@ -45,13 +51,16 @@ class _FormularioPageState extends State<FormularioPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
 
-    for (final c in _placaControllers) { c.dispose(); }
-    for (final f in _placaFocusNodes) { f.dispose(); }
-    
+    for (final c in _placaControllers) {
+      c.dispose();
+    }
+    for (final f in _placaFocusNodes) {
+      f.dispose();
+    }
+
     super.dispose();
   }
 
-  // 🔥 2. Lógica para saltar de cajita en cajita automáticamente
   void _onPlacaChanged(String value, int index) {
     if (value.isNotEmpty && index < 5) {
       _placaFocusNodes[index + 1].requestFocus();
@@ -68,7 +77,9 @@ class _FormularioPageState extends State<FormularioPage> {
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(colorScheme: FormularioStyles.datePickerColorScheme),
+          data: Theme.of(context).copyWith(
+            colorScheme: FormularioStyles.datePickerColorScheme(context),
+          ),
           child: child!,
         );
       },
@@ -82,11 +93,10 @@ class _FormularioPageState extends State<FormularioPage> {
   Future<void> _registrarUsuario() async {
     if (_isLoading) return;
 
-    // Validación manual de la placa
     bool placaIncompleta = _placaControllers.any((c) => c.text.trim().isEmpty);
     if (placaIncompleta) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Completa los 6 caracteres de la placa")),
+        SnackBar(content: Text(context.tr('form.plate_incomplete'))),
       );
       return;
     }
@@ -96,18 +106,18 @@ class _FormularioPageState extends State<FormularioPage> {
         _isLoading = true;
       });
 
-      // 🔥 3. Construimos la placa en formato ABC-123
-      String placaFormateada = "${_placaControllers[0].text}${_placaControllers[1].text}${_placaControllers[2].text}-${_placaControllers[3].text}${_placaControllers[4].text}${_placaControllers[5].text}".toUpperCase();
+      String placaFormateada =
+          "${_placaControllers[0].text}${_placaControllers[1].text}${_placaControllers[2].text}-${_placaControllers[3].text}${_placaControllers[4].text}${_placaControllers[5].text}"
+              .toUpperCase();
 
-      final servicio = ServicioAutenticacion();
-      final exito = await servicio.completarFormulario(
+      final exito = await _authService.completarFormulario(
         widget.correo,
         _nombreController.text,
         _apellidoController.text,
         _telefonoController.text,
         _dniController.text,
         DateFormat("yyyy-MM-dd").format(_selectedDate!),
-        placaFormateada, // Mandamos la placa ya estructurada
+        placaFormateada,
         _modeloController.text,
         _passwordController.text,
       );
@@ -115,11 +125,13 @@ class _FormularioPageState extends State<FormularioPage> {
       if (!mounted) return;
 
       if (exito) {
-        // 🔥 AUTO-LOGIN
-        final data = await servicio.login(widget.correo, _passwordController.text);
-        
+        final data = await _authService.login(
+          widget.correo,
+          _passwordController.text,
+        );
+
         if (!mounted) return;
-        
+
         if (data != null) {
           SesionUsuario.usuario = data;
           Navigator.pushAndRemoveUntil(
@@ -128,16 +140,20 @@ class _FormularioPageState extends State<FormularioPage> {
             (Route<dynamic> route) => false,
           );
         } else {
-          setState(() { _isLoading = false; });
+          setState(() {
+            _isLoading = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Registro exitoso. Inicia sesión manualmente.")),
+            SnackBar(content: Text(context.tr('form.success_manual'))),
           );
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } else {
-        setState(() { _isLoading = false; });
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error al registrar usuario")),
+          SnackBar(content: Text(context.tr('form.register_error'))),
         );
       }
     }
@@ -176,99 +192,167 @@ class _FormularioPageState extends State<FormularioPage> {
                           const FormPageTitle(),
                           const SizedBox(height: 28),
 
-                          // Datos personales
-                          const SectionHeader(icon: Icons.person_rounded, label: "Datos personales"),
+                          SectionHeader(
+                            icon: Icons.person_rounded,
+                            label: context.tr('form.personal_data'),
+                          ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _nombreController,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Nombres", Icons.person_outline_rounded),
-                            validator: (value) => value == null || value.isEmpty ? "Ingrese sus nombres" : null,
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.names'),
+                              Icons.person_outline_rounded,
+                            ),
+                            validator: (value) => value == null || value.isEmpty
+                                ? context.tr('form.enter_names')
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _apellidoController,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Apellidos", Icons.badge_outlined),
-                            validator: (value) => value == null || value.isEmpty ? "Ingrese sus apellidos" : null,
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.surnames'),
+                              Icons.badge_outlined,
+                            ),
+                            validator: (value) => value == null || value.isEmpty
+                                ? context.tr('form.enter_surnames')
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _dniController,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("DNI", Icons.credit_card_rounded),
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              "DNI",
+                              Icons.credit_card_rounded,
+                            ),
                             keyboardType: TextInputType.number,
                             maxLength: 8,
-                            validator: (value) => value == null || value.length != 8 ? "Ingrese un DNI válido" : null,
+                            validator: (value) =>
+                                value == null || value.length != 8
+                                ? context.tr('form.valid_dni')
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _telefonoController,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Teléfono", Icons.phone_rounded),
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.phone'),
+                              Icons.phone_rounded,
+                            ),
                             keyboardType: TextInputType.number,
                             maxLength: 9,
-                            validator: (value) => value == null || value.length != 9 ? "Ingrese un teléfono válido" : null,
+                            validator: (value) =>
+                                value == null || value.length != 9
+                                ? context.tr('form.valid_phone')
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             readOnly: true,
-                            style: FormularioStyles.inputTextStyle,
+                            style: FormularioStyles.fieldTextStyle(context),
                             decoration: FormularioStyles.inputDecoration(
-                              _selectedDate == null ? "Fecha de nacimiento" : DateFormat("dd/MM/yyyy").format(_selectedDate!),
+                              context,
+                              _selectedDate == null
+                                  ? context.tr('form.birth_date')
+                                  : DateFormat(
+                                      "dd/MM/yyyy",
+                                    ).format(_selectedDate!),
                               Icons.calendar_today_rounded,
                             ),
                             onTap: _pickDate,
-                            validator: (_) => _selectedDate == null ? "Seleccione su fecha" : null,
+                            validator: (_) => _selectedDate == null
+                                ? context.tr('form.select_date')
+                                : null,
                           ),
 
                           const SizedBox(height: 24),
 
-                          // Datos del vehículo
-                          const SectionHeader(icon: Icons.directions_car_rounded, label: "Datos del vehículo"),
+                          SectionHeader(
+                            icon: Icons.directions_car_rounded,
+                            label: context.tr('form.vehicle_data'),
+                          ),
                           const SizedBox(height: 16),
-                          
-                          // 🔥 4. Nuestro nuevo Widget de Placa estilo OTP
-                          const Text("Placa del auto", style: TextStyle(color: Colors.white70, fontSize: 14)),
+
+                          Text(
+                            context.tr('form.plate'),
+                            style: TextStyle(
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white70
+                                  : const Color(0xFF4A6A85),
+                              fontSize: 14,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           PlacaInputGroup(
                             controllers: _placaControllers,
                             focusNodes: _placaFocusNodes,
                             onChanged: _onPlacaChanged,
                           ),
-                          
+
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _modeloController,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Modelo del auto", Icons.car_repair_rounded),
-                            validator: (value) => value == null || value.isEmpty ? "Ingrese el modelo" : null,
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.model'),
+                              Icons.car_repair_rounded,
+                            ),
+                            validator: (value) => value == null || value.isEmpty
+                                ? context.tr('form.enter_model')
+                                : null,
                           ),
 
                           const SizedBox(height: 24),
 
-                          // Credenciales
-                          const SectionHeader(icon: Icons.lock_rounded, label: "Credenciales"),
+                          SectionHeader(
+                            icon: Icons.lock_rounded,
+                            label: context.tr('form.credentials'),
+                          ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Contraseña", Icons.lock_outline_rounded),
-                            validator: (value) => value == null || value.length < 8 ? "Mínimo 8 caracteres" : null,
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.password'),
+                              Icons.lock_outline_rounded,
+                            ),
+                            validator: (value) =>
+                                value == null || value.length < 8
+                                ? context.tr('form.min_chars')
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
-                            style: FormularioStyles.inputTextStyle,
-                            decoration: FormularioStyles.inputDecoration("Repetir contraseña", Icons.lock_person_outlined),
-                            validator: (value) => value != _passwordController.text ? "Las contraseñas no coinciden" : null,
+                            style: FormularioStyles.fieldTextStyle(context),
+                            decoration: FormularioStyles.inputDecoration(
+                              context,
+                              context.tr('form.repeat_password'),
+                              Icons.lock_person_outlined,
+                            ),
+                            validator: (value) =>
+                                value != _passwordController.text
+                                ? context.tr('form.passwords_mismatch')
+                                : null,
                           ),
 
                           const SizedBox(height: 32),
                           GradientButton(
-                            label: "Registrarse",
+                            label: context.tr('form.register'),
                             icon: Icons.how_to_reg_rounded,
                             isLoading: _isLoading,
                             onPressed: _registrarUsuario,
@@ -281,6 +365,11 @@ class _FormularioPageState extends State<FormularioPage> {
                 ),
               ],
             ),
+          ),
+          const Positioned(
+            top: 10,
+            right: 12,
+            child: SafeArea(child: PreferencesControls(compact: true)),
           ),
         ],
       ),

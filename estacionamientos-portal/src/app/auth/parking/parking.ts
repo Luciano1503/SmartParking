@@ -1,118 +1,89 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router'; // 👈 IMPORTANTE: Importamos Router
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+
+import { DivisionData, ParkingConfigPayload, PisoData } from '../../models/parking.models';
+import { ParkingService } from '../../services/parking.service';
+import { RealtimeService } from '../../services/realtime.service';
 import { AuthService } from '../auth.service';
-
-export interface DivisionData {
-  id: string;
-  espacios: number;
-}
-
-export interface PisoData {
-  divisiones: DivisionData[];
-}
+import { LanguageService } from '../../core/language.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-parking',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './parking.html',
-  styleUrl: './parking.css'
+  styleUrl: './parking.css',
 })
 export class Parking implements OnInit, OnDestroy {
+  sidebarExpanded = true;
+  activeNavItem = 'crear';
 
-  // ── Variables del Sidebar ─────────────────────────────────────────
-  sidebarExpanded: boolean = true;
-  activeNavItem: string = 'crear';
-
-  // ── Datos de empresa e ubicación ──────────────────────────────────
   empresa_id: number | null = null;
-  empresa: string = '';
-  descripcion: string = '';
-  direccion: string = '';
-  imagenUrl: string = '';
+  empresa = '';
+  descripcion = '';
+  direccion = '';
+  imagenUrl = '';
   coordX: number | null = null;
   coordY: number | null = null;
 
-  // ── Estructura Base ───────────────────────────────────────────────
-  pisos: number = 3;
-  divisionesColumnas: number = 3;
-  divisionesFilas: number = 4;
-  espaciosPorDivision: number = 6;
+  pisos = 3;
+  divisionesColumnas = 3;
+  divisionesFilas = 4;
+  espaciosPorDivision = 6;
 
-  // ── Estado de Configuración ────────────────────
-  configuracionIniciada: boolean = false;
+  configuracionIniciada = false;
   pisosConfig: PisoData[] = [];
-  
-  pisoActualConfigIndex: number = 0;
-  pisoActivoCelular: number = 0;
 
-  private readonly LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  private socket?: WebSocket; 
+  pisoActualConfigIndex = 0;
+  pisoActivoCelular = 0;
+
+  private readonly letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  private realtimeSubscription?: Subscription;
 
   constructor(
-    private http: HttpClient,
-    private authService: AuthService,
-    private router: Router // 👈 Inyectamos Router
+    private readonly authService: AuthService,
+    private readonly parkingService: ParkingService,
+    private readonly realtimeService: RealtimeService,
+    private readonly language: LanguageService,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
     this.empresa_id = this.authService.getEmpresaId();
-    console.log("🏢 Empresa ID cargado:", this.empresa_id);
-    
-    if (!this.empresa_id || this.empresa_id === 0) {
-      console.warn("⚠️ No se detectó sesión activa. Usando ID de prueba (5).");
-      this.empresa_id = 5;
-    }
-    this.conectarWebSocket();
+    this.realtimeSubscription = this.realtimeService.parkingUpdates().subscribe({
+      next: (data) => console.log('Cambio en tiempo real recibido:', data),
+      error: (error) => console.error('Error de WebSocket:', error),
+    });
   }
 
   ngOnDestroy(): void {
-    if (this.socket) {
-      this.socket.close();
-    }
+    this.realtimeSubscription?.unsubscribe();
   }
 
-  // ── Acciones del Sidebar ──────────────────────────────────────────
-  setActiveNav(nav: string) {
+  setActiveNav(nav: string): void {
     this.activeNavItem = nav;
   }
 
-  toggleSidebar() {
+  toggleSidebar(): void {
     this.sidebarExpanded = !this.sidebarExpanded;
   }
 
-  cerrarSesion() {
+  cerrarSesion(): void {
     this.authService.limpiarSesion();
-    this.router.navigate(['/login']); // Te regresa al login
+    this.router.navigate(['/login'], { replaceUrl: true });
   }
 
-  // ── Lógica de WebSockets ──────────────────────────────────────────
-  private conectarWebSocket() {
-    this.socket = new WebSocket('ws://localhost:8000/ws/parking');
-    this.socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("⚡ Cambio en tiempo real recibido desde Python:", data);
-    };
-    this.socket.onclose = () => {
-      console.warn("🔌 Socket cerrado. Reintentando en 3 segundos...");
-      setTimeout(() => this.conectarWebSocket(), 3000);
-    };
-    this.socket.onerror = (error) => {
-      console.error("❌ Error de WebSocket:", error);
-    };
-  }
-
-  // ── Cálculos Dinámicos ──
   get totalDivisiones(): number {
     const cols = Math.min(Number(this.divisionesColumnas) || 0, 4);
     return cols * (Number(this.divisionesFilas) || 0);
   }
 
   getLetra(index: number): string {
-    if (index < 26) return this.LETRAS[index];
+    if (index < 26) return this.letras[index];
     return `Z${index - 25}`;
   }
 
@@ -123,27 +94,33 @@ export class Parking implements OnInit, OnDestroy {
   get gridStyle() {
     const cols = Math.min(Number(this.divisionesColumnas) || 1, 4);
     return {
-      'display': 'grid',
+      display: 'grid',
       'grid-template-columns': `repeat(${cols}, 1fr)`,
-      'gap': '0.35rem'
+      gap: '0.35rem',
     };
   }
 
-  // ── Lógica de Generación de Estructura ──
   iniciarConfiguracion(): void {
-    const p = Number(this.pisos);
-    let cols = Number(this.divisionesColumnas);
+    const pisos = Number(this.pisos);
+    let columnas = Number(this.divisionesColumnas);
     const filas = Number(this.divisionesFilas);
     const espaciosGlobales = Number(this.espaciosPorDivision) || 0;
 
-    if (!p || p < 1) { alert('Ingresa al menos 1 piso.'); return; }
-    if (cols > 4) { this.divisionesColumnas = 4; cols = 4; }
+    if (!pisos || pisos < 1) {
+      alert(this.language.t('parking.enter_one_floor'));
+      return;
+    }
 
-    this.pisosConfig = Array.from({ length: p }, () => ({
-      divisiones: Array.from({ length: cols * filas }, (_, i) => ({
-        id: this.getLetra(i),
-        espacios: espaciosGlobales
-      }))
+    if (columnas > 4) {
+      this.divisionesColumnas = 4;
+      columnas = 4;
+    }
+
+    this.pisosConfig = Array.from({ length: pisos }, () => ({
+      divisiones: Array.from({ length: columnas * filas }, (_, index) => ({
+        id: this.getLetra(index),
+        espacios: espaciosGlobales,
+      })),
     }));
 
     this.configuracionIniciada = true;
@@ -180,21 +157,26 @@ export class Parking implements OnInit, OnDestroy {
 
   espaciosTotalesEnPiso(pisoIndex: number): number {
     if (!this.pisosConfig[pisoIndex]) return 0;
-    return this.pisosConfig[pisoIndex].divisiones.reduce((acc, div) => acc + (Number(div.espacios) || 0), 0);
+    return this.pisosConfig[pisoIndex].divisiones.reduce(
+      (acc, division) => acc + (Number(division.espacios) || 0),
+      0,
+    );
   }
 
   get totalEspaciosGlobal(): number {
-    return this.pisosConfig.reduce((acc, _, index) => acc + this.espaciosTotalesEnPiso(index), 0);
+    return this.pisosConfig.reduce(
+      (acc, _, index) => acc + this.espaciosTotalesEnPiso(index),
+      0,
+    );
   }
 
-  // ── Persistencia hacia FastAPI ─────────────────────────────────────
   guardarConfiguracionBaseDatos(): void {
     if (!this.empresa_id) {
-      alert("❌ Error: No se pudo identificar la empresa. Por favor, inicia sesión nuevamente.");
+      alert(this.language.t('parking.company_missing'));
       return;
     }
 
-    const payload = {
+    const payload: ParkingConfigPayload = {
       empresa_id: this.empresa_id,
       nombre: this.empresa,
       descripcion: this.descripcion,
@@ -204,23 +186,19 @@ export class Parking implements OnInit, OnDestroy {
       longitud: this.coordY || 0,
       columnas_diseno: this.divisionesColumnas,
       filas_diseno: this.divisionesFilas,
-      pisos: this.pisosConfig
+      pisos: this.pisosConfig,
     };
 
-    console.log("📤 Enviando datos masivos:", payload);
-
-    this.http.post('http://localhost:8000/parking/configurar', payload)
-      .subscribe({
-        next: (response: any) => {
-          console.log("✅ Servidor respondió:", response);
-          alert(`¡Éxito! Estacionamiento '${this.empresa}' creado correctamente.`);
-          this.configuracionIniciada = false;
-        },
-        error: (err) => {
-          console.error("❌ Error en la petición:", err);
-          const errorMsg = err.error?.detail || "No se pudo conectar con el backend.";
-          alert("Error al guardar: " + errorMsg);
-        }
-      });
+    this.parkingService.configureParking(payload).subscribe({
+      next: () => {
+        alert(this.language.t('parking.created_success', { name: this.empresa }));
+        this.configuracionIniciada = false;
+      },
+      error: (err) => {
+        console.error('Error en la petición:', err);
+        const errorMsg = err.error?.detail || this.language.t('parking.backend_error');
+        alert(this.language.t('parking.save_error', { message: errorMsg }));
+      },
+    });
   }
 }

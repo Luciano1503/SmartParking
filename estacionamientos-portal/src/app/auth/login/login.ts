@@ -1,60 +1,64 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { Router } from '@angular/router';
+
+import { AuthService } from '../auth.service';
+import { WebSession } from '../../models/auth.models';
+import { AuthApiService } from '../../services/auth-api.service';
+import { LanguageService } from '../../core/language.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
   datosLogin = {
     correo: '',
-    contrasenia: ''
+    contrasenia: '',
   };
 
-  cargando: boolean = false;
-  mensajeError: string = '';
+  cargando = false;
+  mensajeError = '';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private readonly authApi: AuthApiService,
+    private readonly authService: AuthService,
+    private readonly language: LanguageService,
+    private readonly router: Router,
+  ) {}
 
-  onSubmit() {
+  onSubmit(): void {
     if (!this.datosLogin.correo || !this.datosLogin.contrasenia) {
-      this.mensajeError = "Por favor, completa todos los campos.";
+      this.mensajeError = this.language.t('login.complete_fields');
       return;
     }
 
     this.cargando = true;
     this.mensajeError = '';
 
-    this.http.post('http://localhost:8000/login-web', this.datosLogin).subscribe({
-      next: (res: any) => {
+    this.authApi.loginWeb(this.datosLogin).subscribe({
+      next: (res) => {
         this.cargando = false;
-        
-        if (res.status === 'success') {
-          // Guardamos datos de sesión
-          localStorage.setItem('tipo_usuario', res.tipo);
-          
-          // Redirección limpia con Angular Router
-          if (res.tipo === 'admin') {
-            this.router.navigate(['/admin-panel']); 
-          } else {
-            this.router.navigate(['/parking']);
-          }
-        } 
-        else if (res.error) {
-          // Manejo de errores controlados desde el backend
-          this.mensajeError = res.error;
+
+        if ('status' in res && res.status === 'success') {
+          this.authService.guardarSesion(res as WebSession);
+          this.router.navigate([res.tipo === 'admin' ? '/admin-panel' : '/parking'], {
+            replaceUrl: true,
+          });
+          return;
         }
+
+        this.mensajeError = 'error' in res ? res.error : this.language.t('login.failed');
       },
       error: (err) => {
         this.cargando = false;
-        this.mensajeError = err.error?.error || "Error de conexión con el servidor.";
-      }
+        this.mensajeError = err.error?.error || this.language.t('login.connection_error');
+      },
     });
   }
 }

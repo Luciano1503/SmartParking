@@ -1,54 +1,40 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../models/usuario.dart';
+
+import 'package:flutter/foundation.dart';
+
+import '../Models/usuario.dart';
+import 'api_client.dart';
 import 'sesion_usuario.dart';
 
 class ServicioAutenticacion {
-  final String baseUrl = "http://10.131.131.148:8000";
+  final ApiClient _apiClient;
 
-  /// Registro de usuario (solo correo)
+  const ServicioAutenticacion({ApiClient apiClient = const ApiClient()})
+    : _apiClient = apiClient;
+
   Future<bool> registrarUsuario(String correo) async {
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/registro"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"correo": correo}),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print("Error en registro: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      print("Excepción en registrarUsuario: $e");
+      final response = await _apiClient.post('/registro', {'correo': correo});
+      return response.statusCode == 200;
+    } catch (error) {
+      debugPrint('Excepcion en registrarUsuario: $error');
       return false;
     }
   }
 
-  /// Verificación de código
   Future<bool> verificarCodigo(String correo, String codigo) async {
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/verificar"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"correo": correo, "codigo": codigo}),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print("Error en verificación: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      print("Excepción en verificarCodigo: $e");
+      final response = await _apiClient.post('/verificar', {
+        'correo': correo,
+        'codigo': codigo,
+      });
+      return response.statusCode == 200;
+    } catch (error) {
+      debugPrint('Excepcion en verificarCodigo: $error');
       return false;
     }
   }
 
-  /// Completar formulario (datos + contraseña)
   Future<bool> completarFormulario(
     String correo,
     String nombre,
@@ -61,58 +47,47 @@ class ServicioAutenticacion {
     String contrasenia,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/formulario"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "correo": correo,
-          "nombre": nombre,
-          "apellido": apellido,
-          "telefono": telefono,
-          "dni": dni,
-          "fecha_nacimiento": fechaNacimiento,
-          "placa": placa,
-          "modelo": modelo,
-          "contrasenia": contrasenia,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print("Error en formulario: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      print("Excepción en completarFormulario: $e");
+      final response = await _apiClient.post('/formulario', {
+        'correo': correo,
+        'nombre': nombre,
+        'apellido': apellido,
+        'telefono': telefono,
+        'dni': dni,
+        'fecha_nacimiento': fechaNacimiento,
+        'placa': placa,
+        'modelo': modelo,
+        'contrasenia': contrasenia,
+      });
+      return response.statusCode == 200;
+    } catch (error) {
+      debugPrint('Excepcion en completarFormulario: $error');
       return false;
     }
   }
 
-  /// Login de usuario (correo + contraseña)
   Future<Usuario?> login(String correo, String contrasenia) async {
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/login"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"correo": correo, "contrasenia": contrasenia}),
-      );
+      final response = await _apiClient.post('/login', {
+        'correo': correo,
+        'contrasenia': contrasenia,
+      });
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data.containsKey("error")) {
-          print("Error en login: ${data["error"]}");
-          return null;
-        }
-        final usuario = Usuario.fromJson(data);
-        SesionUsuario.cargarDatos(data); // Guardar sesión
-        return usuario;
-      } else {
-        print("Error en login: ${response.body}");
+      if (response.statusCode != 200) {
+        debugPrint('Error en login: ${response.body}');
         return null;
       }
-    } catch (e) {
-      print("Excepción en login: $e");
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data.containsKey('error')) {
+        debugPrint('Error en login: ${data['error']}');
+        return null;
+      }
+
+      final usuario = Usuario.fromJson(data);
+      SesionUsuario.cargarDatos(data);
+      return usuario;
+    } catch (error) {
+      debugPrint('Excepcion en login: $error');
       return null;
     }
   }

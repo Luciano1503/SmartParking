@@ -1,26 +1,44 @@
 import { Injectable } from '@angular/core';
+import { WebSession } from '../models/auth.models';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AuthService {
+  private readonly sessionKey = 'usuario';
+  private readonly typeKey = 'tipo_usuario';
 
-  // Guarda el usuario en el navegador para que no se borre al refrescar
-  guardarSesion(usuario: any) {
-    localStorage.setItem('usuario', JSON.stringify(usuario));
+  guardarSesion(usuario: WebSession): void {
+    localStorage.setItem(this.sessionKey, JSON.stringify(usuario));
+    localStorage.setItem(this.typeKey, usuario.tipo);
   }
 
-  // Recupera el ID de la empresa vinculado al usuario
-  getEmpresaId(): number {
-    const data = localStorage.getItem('usuario');
-    if (data) {
-      const user = JSON.parse(data);
-      return user.empresa_id; // Este es el que necesitamos en Parking
+  obtenerSesion(): WebSession | null {
+    const data = localStorage.getItem(this.sessionKey);
+    if (!data) return null;
+
+    try {
+      return JSON.parse(data) as WebSession;
+    } catch {
+      this.limpiarSesion();
+      return null;
     }
-    return 0; 
   }
 
-  limpiarSesion() {
-    localStorage.removeItem('usuario');
+  estaAutenticado(): boolean {
+    return this.obtenerSesion() !== null;
+  }
+
+  obtenerTipoUsuario(): 'admin' | 'empresa' | null {
+    return this.obtenerSesion()?.tipo ?? null;
+  }
+
+  getEmpresaId(): number {
+    return this.obtenerSesion()?.empresa_id ?? 0;
+  }
+
+  limpiarSesion(): void {
+    localStorage.removeItem(this.sessionKey);
+    localStorage.removeItem(this.typeKey);
   }
 }

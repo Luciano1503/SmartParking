@@ -1,35 +1,31 @@
-"""
-================================================================
-  Arduino Serial Bridge - SmartParking Solutions
-  Lee datos del sensor HC-SR04 via puerto serial y actualiza
-  la base de datos PostgreSQL en tiempo real.
-  VERSIÃ“N BULLETPROOF: Auto-reconexiÃ³n ante fallos USB.
-================================================================
-"""
+import os
+import sys
+import time
+from contextlib import suppress
+from datetime import datetime
+from pathlib import Path
 
+import psycopg2
+import requests
 import serial
 import serial.tools.list_ports
-import psycopg2
+from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
-import time
-import sys
-import os
-from datetime import datetime
-import requests
 
-# Forzar encoding UTF-8 en la consola de Windows
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+
 if sys.platform == "win32":
     os.system("chcp 65001 >nul 2>&1")
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# ================================================================
-# CONFIGURACION
-# ================================================================
-
-SERIAL_PORT = None
-BAUD_RATE = 9600
-SENSOR_CODIGO = "S-00001"
-TIEMPO_CONFIRMACION = 15
+SERIAL_PORT = os.getenv("SERIAL_PORT") or None
+BAUD_RATE = int(os.getenv("SERIAL_BAUD_RATE", "9600"))
+SENSOR_CODIGO = os.getenv("SENSOR_CODIGO", "S-00001")
+TIEMPO_CONFIRMACION = float(os.getenv("TIEMPO_CONFIRMACION_OCUPADO", "15"))
+UMBRAL_ERROR = int(os.getenv("UMBRAL_ERROR_SENSOR", "5"))
+UMBRAL_RECUPERACION = int(os.getenv("UMBRAL_RECUPERACION_SENSOR", "3"))
+SERIAL_STALE_TIMEOUT = float(os.getenv("SERIAL_STALE_TIMEOUT", "12"))
+BACKEND_NOTIFY_URL = os.getenv("BACKEND_NOTIFY_URL", "http://localhost:8000/notificar_cambio")
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -45,8 +41,11 @@ ESTADOS = {
 }
 
 
+def _estado_normalizado(valor):
+    return (valor or "").strip().lower().replace("_", " ")
+
+
 def detectar_puerto_arduino():
-    """Auto-detecta el puerto COM del Arduino."""
     print("\n[BUSCAR] Buscando Arduino conectado...")
     puertos = serial.tools.list_ports.comports()
 
@@ -62,8 +61,8 @@ def detectar_puerto_arduino():
 
     print("\n   [!] No se detecto Arduino automaticamente.")
     print("   Puertos disponibles:")
-    for p in puertos:
-        print(f"      - {p.device} -- {p.description}")
+    for puerto in puertos:
+        print(f"      - {puerto.device} -- {puerto.description}")
 
     if puertos:
         seleccion = puertos[0].device
@@ -74,203 +73,233 @@ def detectar_puerto_arduino():
 
 
 def conectar_db():
-    """Establece conexion con PostgreSQL. SIN autocommit para manejar transacciones."""
     try:
-        conn = psycopg2.connect(
-            **DB_CONFIG,
-            cursor_factory=RealDictCursor
-        )
-        # NO autocommit - usamos transacciones explicitas
+        conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
         conn.autocommit = False
         print("   [OK] Conexion a PostgreSQL establecida")
         return conn
-    except Exception as e:
-        print(f"   [ERROR] Error conectando a PostgreSQL: {e}")
+    except Exception as exc:
+        print(f"   [ERROR] Error conectando a PostgreSQL: {exc}")
         return None
+
+
+def preparar_arduino(arduino):
+    try:
+        arduino.reset_input_buffer()
+        arduino.reset_output_buffer()
+    except Exception:
+        pass
+
+    try:
+        arduino.dtr = False
+        time.sleep(0.2)
+        arduino.dtr = True
+    except Exception:
+        pass
+
+    time.sleep(2)
 
 
 def obtener_espacio_id(conn, sensor_codigo):
-    """Obtiene el ID del espacio asociado al sensor."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, codigo, zona_id FROM espacio WHERE sensor_codigo = %s",
-        (sensor_codigo,)
-    )
-    resultado = cursor.fetchone()
-    cursor.close()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT id, codigo, zona_id FROM espacio WHERE sensor_codigo = %s",
+            (sensor_codigo,),
+        )
+        resultado = cursor.fetchone()
     conn.commit()
 
     if resultado:
-        print(f"   [OK] Sensor {sensor_codigo} -> Espacio '{resultado['codigo'].strip()}' (ID: {resultado['id']}, Zona: {resultado['zona_id']})")
-        return resultado['id']
-    else:
-        print(f"   [ERROR] No se encontro espacio con sensor_codigo = '{sensor_codigo}'")
-        return None
+        codigo = resultado["codigo"].strip()
+        print(
+            f"   [OK] Sensor {sensor_codigo} -> Espacio '{codigo}' "
+            f"(ID: {resultado['id']}, Zona: {resultado['zona_id']})"
+        )
+        return resultado["id"]
+
+    print(f"   [ERROR] No se encontro espacio con sensor_codigo = '{sensor_codigo}'")
+    return None
 
 
 def obtener_estado_actual_db(conn, espacio_id):
-    """Obtiene el estado actual del espacio en la base de datos."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT estado_actual FROM espacio WHERE id = %s",
-        (espacio_id,)
-    )
-    resultado = cursor.fetchone()
-    cursor.close()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT estado_actual FROM espacio WHERE id = %s",
+            (espacio_id,),
+        )
+        resultado = cursor.fetchone()
     conn.commit()
-    return resultado['estado_actual'].strip() if resultado else None
+    return _estado_normalizado(resultado["estado_actual"]) if resultado else None
+
+
+def notificar_cambio(espacio_id, nuevo_estado, fecha):
+    payload = {
+        "espacio_id": espacio_id,
+        "nuevo_estado": nuevo_estado,
+        "fecha": fecha.strftime("%Y-%m-%d %H:%M:%S"),
+        "origen": "arduino_serial",
+    }
+
+    try:
+        response = requests.post(BACKEND_NOTIFY_URL, json=payload, timeout=2)
+        if response.status_code == 200:
+            print("   [WS] Notificacion de tiempo real enviada con exito.")
+        else:
+            print(f"   [!] Backend respondio con error: {response.status_code}")
+    except Exception as exc:
+        print(f"   [!] No se pudo notificar al WebSocket: {exc}")
 
 
 def actualizar_estado(conn, espacio_id, nuevo_estado):
-    """
-    Actualiza el estado del espacio y gestiona el historial de movimientos.
-    Detecta entradas (INSERT) y salidas (UPDATE con duraciÃ³n).
-    AL FINAL: Notifica al servidor FastAPI vÃ­a Webhook para activar WebSockets.
-    """
-    estado_actual = obtener_estado_actual_db(conn, espacio_id)
-
-    if estado_actual == nuevo_estado:
-        return False  # Sin cambio
-
+    nuevo_estado = _estado_normalizado(nuevo_estado)
     ahora = datetime.now()
     cursor = conn.cursor()
 
     try:
-        # 1) Actualizar tabla espacio (Estado actual para el mapa)
+        cursor.execute(
+            "SELECT estado_actual FROM espacio WHERE id = %s FOR UPDATE",
+            (espacio_id,),
+        )
+        fila = cursor.fetchone()
+        if not fila:
+            conn.rollback()
+            return {"ok": False, "changed": False, "estado": None}
+
+        estado_actual = _estado_normalizado(fila["estado_actual"])
+        if estado_actual == nuevo_estado:
+            conn.commit()
+            return {"ok": True, "changed": False, "estado": nuevo_estado}
+
         cursor.execute(
             """
             UPDATE espacio
             SET estado_actual = %s, ultimo_update = %s
             WHERE id = %s
             """,
-            (nuevo_estado, ahora, espacio_id)
+            (nuevo_estado, ahora, espacio_id),
         )
-        print(f"\n   [DB] Espacio {espacio_id} cambiado a: {nuevo_estado}")
+        print(f"\n   [DB] Espacio {espacio_id} cambiado: {estado_actual} -> {nuevo_estado}")
 
-        # 2) LÃ³gica para la tabla movimiento_estacionamiento
         if nuevo_estado == "ocupado":
-            # SE OCUPÃ“: Creamos un nuevo registro
             cursor.execute(
                 """
-                INSERT INTO movimiento_estacionamiento 
-                (espacio_id, fecha_inicio, metodo_deteccion, confirmado, confianza)
-                VALUES (%s, %s, 'auto', TRUE, 1.0)
+                INSERT INTO movimiento_estacionamiento
+                    (espacio_id, fecha_inicio, metodo_deteccion, confirmado, confianza)
+                SELECT %s, %s, 'auto', TRUE, 1.0
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM movimiento_estacionamiento
+                    WHERE espacio_id = %s AND fecha_fin IS NULL
+                )
                 """,
-                (espacio_id, ahora)
+                (espacio_id, ahora, espacio_id),
             )
-            print("   [DB] Movimiento: Registro de entrada CREADO.")
+            if cursor.rowcount:
+                print("   [DB] Movimiento: entrada creada.")
+            else:
+                print("   [DB] Movimiento: ya existia una entrada abierta.")
 
-        elif nuevo_estado == "libre" and estado_actual == "ocupado":
-            # SE LIBERÃ“: Actualizamos el registro abierto
+        elif nuevo_estado == "libre":
             cursor.execute(
                 """
-                UPDATE movimiento_estacionamiento 
-                SET fecha_fin = %s, 
+                UPDATE movimiento_estacionamiento
+                SET fecha_fin = %s,
                     duracion = %s - fecha_inicio
                 WHERE espacio_id = %s AND fecha_fin IS NULL
                 """,
-                (ahora, ahora, espacio_id)
+                (ahora, ahora, espacio_id),
             )
-            print("   [DB] Movimiento: Registro de salida ACTUALIZADO.")
+            if cursor.rowcount:
+                print("   [DB] Movimiento: salida cerrada.")
 
-        # 3) Mantener registro_estado (AuditorÃ­a)
         cursor.execute(
             """
             UPDATE registro_estado
             SET estado = %s, fecha = %s
             WHERE id = (
-                SELECT id FROM registro_estado 
-                WHERE espacio_id = %s 
-                ORDER BY id ASC 
+                SELECT id
+                FROM registro_estado
+                WHERE espacio_id = %s
+                ORDER BY id DESC
                 LIMIT 1
             )
             """,
-            (nuevo_estado, ahora, espacio_id)
+            (nuevo_estado, ahora, espacio_id),
         )
+        if cursor.rowcount == 0:
+            cursor.execute(
+                "INSERT INTO registro_estado (espacio_id, estado, fecha) VALUES (%s, %s, %s)",
+                (espacio_id, nuevo_estado, ahora),
+            )
 
-        # COMMIT - Guardamos fÃ­sicamente en la base de datos
         conn.commit()
-        cursor.close()
+        notificar_cambio(espacio_id, nuevo_estado, ahora)
+        return {"ok": True, "changed": True, "estado": nuevo_estado}
 
-        # ================================================================
-        # NUEVO: DISPARADOR DE TIEMPO REAL (WEBHOOK)
-        # ================================================================
-        try:
-            # URL de tu backend de FastAPI que creamos en el paso anterior
-            url_backend = "http://localhost:8000/notificar_cambio"
-            
-            payload = {
-                "espacio_id": espacio_id,
-                "nuevo_estado": nuevo_estado,
-                "fecha": ahora.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            # Enviamos la seÃ±al al servidor para que el broadcast ocurra
-            response = requests.post(url_backend, json=payload, timeout=2)
-            
-            if response.status_code == 200:
-                print(f"   [WS] NotificaciÃ³n de tiempo real enviada con Ã©xito.")
-            else:
-                print(f"   [!] El servidor respondiÃ³ con error: {response.status_code}")
-                
-        except Exception as e:
-            print(f"   [!] Error al conectar con el servidor para WebSocket: {e}")
-        # ================================================================
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        with suppress(Exception):
+            conn.rollback()
+        raise
+    except Exception as exc:
+        with suppress(Exception):
+            conn.rollback()
+        print(f"\n   [ERROR] Error actualizando BD: {exc}")
+        return {"ok": False, "changed": False, "estado": None}
+    finally:
+        with suppress(Exception):
+            cursor.close()
 
-        return True
-
-    except Exception as e:
-        conn.rollback()
-        print(f"\n   [ERROR] Error en la transacciÃ³n: {e}")
-        cursor.close()
-        return False
 
 def imprimir_banner():
-    """Imprime el banner de inicio."""
     print("\n" + "=" * 60)
     print("  [P] SmartParking -- Arduino Serial Bridge")
-    print("  Sensor HC-SR04 -> PostgreSQL (Bulletproof Mode)")
+    print("  Sensor HC-SR04 -> PostgreSQL + WebSocket")
     print("=" * 60)
 
 
 def imprimir_estado(estado_num, estado_texto, tiempo_deteccion=None):
-    """Imprime el estado actual del sensor de forma visual."""
     iconos = {0: "[VERDE]", 1: "[ROJO]", 2: "[AMARILLO]"}
     icono = iconos.get(estado_num, "[?]")
 
     if estado_num == 1 and tiempo_deteccion is not None:
         barra_progreso = int((tiempo_deteccion / TIEMPO_CONFIRMACION) * 20)
         barra = "#" * min(barra_progreso, 20) + "." * max(20 - barra_progreso, 0)
-        print(f"   {icono} {estado_texto.upper():15s} [{barra}] {tiempo_deteccion:.0f}/{TIEMPO_CONFIRMACION}s", end="\r")
+        print(
+            f"   {icono} {estado_texto.upper():15s} [{barra}] "
+            f"{tiempo_deteccion:.0f}/{TIEMPO_CONFIRMACION:.0f}s",
+            end="\r",
+        )
     else:
-        print(f"   {icono} {estado_texto.upper():15s}                                        ", end="\r")
+        print(f"   {icono} {estado_texto.upper():24s}", end="\r")
+
+
+def aplicar_resultado(resultado, estado_memoria):
+    if resultado.get("ok") and resultado.get("estado"):
+        return resultado["estado"]
+    return estado_memoria
 
 
 def iniciar_puente():
     imprimir_banner()
 
-    # --- Bucle de Supervivencia (Bulletproof) ---
     while True:
         arduino = None
         conn = None
-        
+
         try:
-            # --- Determinar puerto serial ---
             puerto = SERIAL_PORT or detectar_puerto_arduino()
             if not puerto:
                 print("\n[ERROR] No se pudo encontrar el Arduino. Reintentando en 3s...")
                 time.sleep(3)
                 continue
 
-            # --- Conectar a PostgreSQL ---
             print("\n[DB] Conectando a la base de datos...")
             conn = conectar_db()
             if not conn:
-                print("\n[ERROR] Sin Base de Datos. Reintentando en 3s...")
+                print("\n[ERROR] Sin base de datos. Reintentando en 3s...")
                 time.sleep(3)
                 continue
 
-            # --- Obtener ID del espacio ---
             print(f"\n[SENSOR] Buscando espacio para sensor: {SENSOR_CODIGO}")
             espacio_id = obtener_espacio_id(conn, SENSOR_CODIGO)
             if not espacio_id:
@@ -278,124 +307,166 @@ def iniciar_puente():
                 time.sleep(3)
                 continue
 
-            # --- Conectar al Arduino ---
             print(f"\n[SERIAL] Conectando al Arduino en {puerto} @ {BAUD_RATE} baud...")
             arduino = serial.Serial(puerto, BAUD_RATE, timeout=1)
-            time.sleep(2) # Darle tiempo al Arduino para resetearse
+            preparar_arduino(arduino)
             print(f"   [OK] Arduino conectado en {puerto}")
 
-            # --- Variables de estado ---
-            estado_anterior_db = obtener_estado_actual_db(conn, espacio_id)
+            estado_db_actual = obtener_estado_actual_db(conn, espacio_id)
             tiempo_inicio_deteccion = None
-            ocupado_confirmado = False
+            ocupado_confirmado = estado_db_actual == "ocupado"
             lecturas_error = 0
-            UMBRAL_ERROR = 5 
+            lecturas_recuperacion = 0
+            ultimo_estado_sensor = None
+            ultimo_estado_valido = time.time()
 
-            print(f"\n   Estado actual en BD: {estado_anterior_db}")
-            print(f"   Tiempo de confirmacion: {TIEMPO_CONFIRMACION}s")
-            print(f"   Umbral error sensor: {UMBRAL_ERROR} lecturas consecutivas")
+            print(f"\n   Estado actual en BD: {estado_db_actual}")
+            print(f"   Confirmacion ocupado: {TIEMPO_CONFIRMACION:.0f}s")
+            print(f"   Error sensor: {UMBRAL_ERROR} lecturas consecutivas")
+            print(f"   Recuperacion de no operativo: {UMBRAL_RECUPERACION} lecturas normales")
+            print(f"   Reinicio automatico serial si no hay lecturas: {SERIAL_STALE_TIMEOUT:.0f}s")
             print("\n" + "-" * 60)
             print("   Monitoreando sensor en tiempo real...")
-            print("   (Presiona Ctrl+C para detener)")
+            print("   Presiona Ctrl+C para detener")
             print("-" * 60 + "\n")
 
-            # --- Bucle de Lectura ---
             while True:
-                if arduino.in_waiting > 0:
-                    try:
-                        linea = arduino.readline().decode("utf-8").strip()
-                    except UnicodeDecodeError:
+                if arduino.in_waiting <= 0:
+                    if time.time() - ultimo_estado_valido > SERIAL_STALE_TIMEOUT:
+                        raise serial.SerialException(
+                            "Sin lecturas ESTADO validas desde el Arduino"
+                        )
+                    time.sleep(0.1)
+                    continue
+
+                try:
+                    linea = arduino.readline().decode("utf-8", errors="ignore").strip()
+                except UnicodeDecodeError:
+                    continue
+
+                if not linea.startswith("ESTADO:"):
+                    continue
+
+                try:
+                    estado_num = int(linea.split(":", 1)[1])
+                except (ValueError, IndexError):
+                    continue
+
+                if estado_num not in ESTADOS:
+                    continue
+
+                ultimo_estado_valido = time.time()
+
+                if estado_num != ultimo_estado_sensor:
+                    print(f"\n   [SENSOR] Lectura recibida: {ESTADOS[estado_num]}")
+                    ultimo_estado_sensor = estado_num
+
+                ahora = time.time()
+
+                if estado_num == 2:
+                    tiempo_inicio_deteccion = None
+                    ocupado_confirmado = False
+                    lecturas_recuperacion = 0
+                    lecturas_error += 1
+
+                    if estado_db_actual == "no operativo":
+                        imprimir_estado(2, "NO OPERATIVO")
                         continue
 
-                    # Mostrar datos crudos para debug
-                    if linea and not linea.startswith("SmartParking") and not linea.startswith("Iniciando"):
-                        pass  # Lineas validas
+                    imprimir_estado(2, f"ERROR ({min(lecturas_error, UMBRAL_ERROR)}/{UMBRAL_ERROR})")
+                    if lecturas_error >= UMBRAL_ERROR:
+                        resultado = actualizar_estado(conn, espacio_id, "no operativo")
+                        estado_db_actual = aplicar_resultado(resultado, estado_db_actual)
+                        if resultado.get("changed"):
+                            print(
+                                f"\n   [AMARILLO] NO OPERATIVO -- Estado confirmado "
+                                f"[{datetime.now().strftime('%H:%M:%S')}]"
+                            )
+                        lecturas_error = UMBRAL_ERROR
+                    continue
 
-                    if not linea.startswith("ESTADO:"):
+                lecturas_error = 0
+
+                if estado_num == 0:
+                    tiempo_inicio_deteccion = None
+                    ocupado_confirmado = False
+
+                    if estado_db_actual == "libre":
+                        lecturas_recuperacion = 0
+                        imprimir_estado(0, "LIBRE")
                         continue
 
-                    try:
-                        estado_num = int(linea.split(":")[1])
-                    except (ValueError, IndexError):
-                        continue
-
-                    ahora = time.time()
-
-                    # === MAQUINA DE ESTADOS ===
-
-                    if estado_num == 1:
-                        # --- Sensor detecta presencia (rojo) ---
-                        lecturas_error = 0 
-
-                        if tiempo_inicio_deteccion is None:
-                            tiempo_inicio_deteccion = ahora
-                            ocupado_confirmado = False
-
-                        tiempo_transcurrido = ahora - tiempo_inicio_deteccion
-                        imprimir_estado(1, "detectando...", tiempo_transcurrido)
-
-                        if tiempo_transcurrido >= TIEMPO_CONFIRMACION and not ocupado_confirmado:
-                            if actualizar_estado(conn, espacio_id, "ocupado"):
-                                ocupado_confirmado = True
-                                print(f"\n   [ROJO] OCUPADO! Estado actualizado en BD  [{datetime.now().strftime('%H:%M:%S')}]")
-                            else:
-                                print(f"\n   [!] Fallo al actualizar a ocupado")
-
-                        elif ocupado_confirmado:
-                            imprimir_estado(1, "OCUPADO", TIEMPO_CONFIRMACION)
-
-                    elif estado_num == 0:
-                        # --- Espacio libre (verde) ---
-                        tiempo_inicio_deteccion = None
-                        ocupado_confirmado = False
-                        lecturas_error = 0 
+                    if estado_db_actual == "no operativo":
+                        lecturas_recuperacion += 1
+                        imprimir_estado(0, f"RECUPERANDO ({lecturas_recuperacion}/{UMBRAL_RECUPERACION})")
+                        if lecturas_recuperacion < UMBRAL_RECUPERACION:
+                            continue
+                    else:
+                        lecturas_recuperacion = 0
                         imprimir_estado(0, "LIBRE")
 
-                        if actualizar_estado(conn, espacio_id, "libre"):
-                            print(f"\n   [VERDE] LIBRE -- Estado actualizado en BD  [{datetime.now().strftime('%H:%M:%S')}]")
+                    resultado = actualizar_estado(conn, espacio_id, "libre")
+                    estado_db_actual = aplicar_resultado(resultado, estado_db_actual)
+                    if resultado.get("changed"):
+                        print(
+                            f"\n   [VERDE] LIBRE -- Estado sincronizado en BD "
+                            f"[{datetime.now().strftime('%H:%M:%S')}]"
+                        )
+                    lecturas_recuperacion = 0
+                    continue
 
-                    elif estado_num == 2:
-                        # --- Error del sensor (amarillo) ---
-                        tiempo_inicio_deteccion = None
-                        ocupado_confirmado = False
-                        lecturas_error += 1
+                if estado_num == 1:
+                    lecturas_recuperacion = 0
 
-                        imprimir_estado(2, f"ERROR ({lecturas_error}/{UMBRAL_ERROR})")
+                    if tiempo_inicio_deteccion is None:
+                        tiempo_inicio_deteccion = ahora
+                        ocupado_confirmado = estado_db_actual == "ocupado"
 
-                        if lecturas_error >= UMBRAL_ERROR:
-                            if actualizar_estado(conn, espacio_id, "no operativo"):
-                                print(f"\n   [AMARILLO] NO OPERATIVO -- Estado actualizado en BD  [{datetime.now().strftime('%H:%M:%S')}]")
-                                lecturas_error = 0 
+                    tiempo_transcurrido = ahora - tiempo_inicio_deteccion
+
+                    if ocupado_confirmado:
+                        imprimir_estado(1, "OCUPADO", TIEMPO_CONFIRMACION)
+                        continue
+
+                    imprimir_estado(1, "detectando...", tiempo_transcurrido)
+                    if tiempo_transcurrido >= TIEMPO_CONFIRMACION:
+                        resultado = actualizar_estado(conn, espacio_id, "ocupado")
+                        estado_db_actual = aplicar_resultado(resultado, estado_db_actual)
+                        if resultado.get("ok") and estado_db_actual == "ocupado":
+                            ocupado_confirmado = True
+                            if resultado.get("changed"):
+                                print(
+                                    f"\n   [ROJO] OCUPADO -- Estado sincronizado en BD "
+                                    f"[{datetime.now().strftime('%H:%M:%S')}]"
+                                )
 
                 time.sleep(0.1)
 
-        except serial.SerialException as e:
-            print(f"\n\n   [!] CONEXIÃ“N PERDIDA CON EL USB: {e}")
-            print("   ðŸ”„ Forzando cierre del puerto y reintentando en 3 segundos...")
+        except serial.SerialException as exc:
+            print(f"\n\n   [!] Conexion perdida con USB: {exc}")
+            print("   Reintentando en 3 segundos...")
             time.sleep(3)
-        except psycopg2.OperationalError as e:
-            print(f"\n\n   [!] CONEXIÃ“N PERDIDA CON POSTGRESQL: {e}")
-            print("   ðŸ”„ Reintentando en 3 segundos...")
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
+            print(f"\n\n   [!] Conexion perdida con PostgreSQL: {exc}")
+            print("   Reintentando en 3 segundos...")
             time.sleep(3)
         except KeyboardInterrupt:
             print("\n\n" + "=" * 60)
             print("   [STOP] Monitoreo detenido por el usuario")
             print("=" * 60)
-            break # Salimos del bucle infinito si el usuario presiona Ctrl+C
-        except Exception as e:
-            print(f"\n\n   [ERROR] Error inesperado crÃ­tico: {e}")
-            print("   ðŸ”„ Reintentando en 3 segundos...")
+            break
+        except Exception as exc:
+            print(f"\n\n   [ERROR] Error inesperado: {exc}")
+            print("   Reintentando en 3 segundos...")
             time.sleep(3)
         finally:
-            # LIMPIEZA CRÃTICA: Aseguramos soltar el puerto y la BD
-            if 'arduino' in locals() and arduino and arduino.is_open:
+            if arduino and arduino.is_open:
                 arduino.close()
-                print("   [CLEANUP] Puerto serial cerrado forzosamente.")
-            if 'conn' in locals() and conn and not conn.closed:
+                print("   [CLEANUP] Puerto serial cerrado.")
+            if conn and not conn.closed:
                 conn.close()
-                print("   [CLEANUP] ConexiÃ³n BD cerrada forzosamente.")
+                print("   [CLEANUP] Conexion BD cerrada.")
 
 
 if __name__ == "__main__":
     iniciar_puente()
-

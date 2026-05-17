@@ -1,3 +1,113 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+:root,
+:root[data-theme='light'] {
+  --app-bg: #f4f7fd;
+  --app-surface: #ffffff;
+  --app-surface-muted: #fafbfe;
+  --app-surface-soft: #eef3fd;
+  --app-surface-table: #f8fafc;
+  --app-text: #0f1e3a;
+  --app-text-soft: #374060;
+  --app-text-muted: #6b7a99;
+  --app-border: #dde4f0;
+  --app-border-soft: #eef3fd;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --app-bg: #08111f;
+  --app-surface: #101b2e;
+  --app-surface-muted: #0c1729;
+  --app-surface-soft: #12233e;
+  --app-surface-table: #0f1a2c;
+  --app-text: #edf4ff;
+  --app-text-soft: #dbe7f7;
+  --app-text-muted: #a6b7cf;
+  --app-border: #263752;
+  --app-border-soft: #20304a;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--app-bg);
+  color: var(--app-text);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.preferences-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 60;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.preferences-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+  color: var(--app-text);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: 0 12px 30px rgb(15 30 58 / 10%);
+  backdrop-filter: blur(10px);
+}
+
+.preferences-controls button:hover {
+  border-color: #1558d6;
+}
+
+:root[data-theme='dark'] [class~='bg-[#F4F7FD]'] {
+  background-color: var(--app-bg) !important;
+}
+
+:root[data-theme='dark'] [class~='bg-white'] {
+  background-color: var(--app-surface) !important;
+}
+
+:root[data-theme='dark'] [class~='bg-[#FAFBFE]'] {
+  background-color: var(--app-surface-muted) !important;
+}
+
+:root[data-theme='dark'] [class~='bg-[#EEF3FD]'] {
+  background-color: var(--app-surface-soft) !important;
+}
+
+:root[data-theme='dark'] [class~='bg-[#F8FAFC]'] {
+  background-color: var(--app-surface-table) !important;
+}
+
+:root[data-theme='dark'] [class~='text-[#0F1E3A]'] {
+  color: var(--app-text) !important;
+}
+
+:root[data-theme='dark'] [class~='text-[#374060]'] {
+  color: var(--app-text-soft) !important;
+}
+
+:root[data-theme='dark'] [class~='text-[#6B7A99]'],
+:root[data-theme='dark'] [class~='text-[#9AA5C0]'] {
+  color: var(--app-text-muted) !important;
+}
+
+:root[data-theme='dark'] [class~='border-[#DDE4F0]'] {
+  border-color: var(--app-border) !important;
+}
+
+:root[data-theme='dark'] [class~='border-[#EEF3FD]'] {
+  border-color: var(--app-border-soft) !important;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] textarea {
+  color: var(--app-text);
+}

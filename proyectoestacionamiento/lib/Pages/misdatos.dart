@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../Styles/misdatosStyles.dart';
-import '../Widgets/misdatosWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/misdatos_styles.dart';
+import '../Widgets/misdatos_widgets.dart';
 import '../Services/sesion_usuario.dart';
 import '../Pages/main.dart';
 
@@ -13,7 +14,7 @@ class MisDatosPage extends StatelessWidget {
       backgroundColor: MisDatosStyles.lightBg,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text("Mis datos"),
+        title: Text(context.tr('profile.title')),
         backgroundColor: MisDatosStyles.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -26,47 +27,49 @@ class MisDatosPage extends StatelessWidget {
 
             // Banner con nombre completo
             PerfilBanner(
-              nombre: SesionUsuario.usuario?.nombre ?? "No disponible",
+              nombre: SesionUsuario.usuario?.nombre ?? context.tr('profile.unavailable'),
               apellido: SesionUsuario.usuario?.apellido ?? "",
-              correo: SesionUsuario.usuario?.correo ?? "No disponible",
+              correo: SesionUsuario.usuario?.correo ?? context.tr('profile.unavailable'),
             ),
 
             const SizedBox(height: 14),
 
             // Datos personales
             InfoPersonalCard(
-              nombre: SesionUsuario.usuario?.nombre ?? "No disponible",
+              nombre: SesionUsuario.usuario?.nombre ?? context.tr('profile.unavailable'),
               apellido: SesionUsuario.usuario?.apellido ?? "",
-              dni: SesionUsuario.usuario?.dni ?? "No disponible",
-              telefono: SesionUsuario.usuario?.telefono ?? "No disponible",
-              fechaNacimiento: SesionUsuario.usuario?.fechaNacimiento ?? "No disponible",
+              dni: SesionUsuario.usuario?.dni ?? context.tr('profile.unavailable'),
+              telefono: SesionUsuario.usuario?.telefono ?? context.tr('profile.unavailable'),
+              fechaNacimiento:
+                  SesionUsuario.usuario?.fechaNacimiento ??
+                  context.tr('profile.unavailable'),
             ),
 
             const SizedBox(height: 12),
 
             // Datos del vehículo
             VehiculoCard(
-              placa: SesionUsuario.usuario?.placa ?? "No disponible",
-              modelo: SesionUsuario.usuario?.modelo ?? "No disponible",
+              placa: SesionUsuario.usuario?.placa ?? context.tr('profile.unavailable'),
+              modelo: SesionUsuario.usuario?.modelo ?? context.tr('profile.unavailable'),
             ),
 
             const SizedBox(height: 24),
 
             PrimaryButton(
-              label: "Modificar mis datos",
+              label: context.tr('profile.edit'),
               icon: Icons.edit_rounded,
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Funcionalidad en desarrollo")),
+                  SnackBar(content: Text(context.tr('profile.in_development'))),
                 );
               },
             ),
             const SizedBox(height: 10),
             SecondaryButton(
-              label: "Cerrar sesión",
+              label: context.tr('profile.logout'),
               icon: Icons.logout_rounded,
               onPressed: () {
-                SesionUsuario.limpiar(); // ✅ limpiar datos
+                SesionUsuario.limpiar();
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => const MyApp()),

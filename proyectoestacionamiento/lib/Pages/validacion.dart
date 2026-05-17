@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'formulario.dart';
-import '../Styles/validacionStyles.dart';
-import '../Widgets/validacionWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/validacion_styles.dart';
+import '../Widgets/validacion_widgets.dart';
+import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
 
 class ValidacionPage extends StatefulWidget {
   final String correo;
 
-  const ValidacionPage({
-    super.key,
-    required this.correo,
-  });
+  const ValidacionPage({super.key, required this.correo});
 
   @override
   State<ValidacionPage> createState() => _ValidacionPageState();
@@ -18,12 +17,14 @@ class ValidacionPage extends StatefulWidget {
 
 class _ValidacionPageState extends State<ValidacionPage>
     with SingleTickerProviderStateMixin {
+  final ServicioAutenticacion _authService = const ServicioAutenticacion();
   final TextEditingController _codigoController = TextEditingController();
-  final List<TextEditingController> _digitControllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _digitControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  // 🔥 1. Variable para controlar el estado de carga
   bool _isLoading = false;
 
   late AnimationController _animController;
@@ -39,20 +40,15 @@ class _ValidacionPageState extends State<ValidacionPage>
       duration: ValidacionStyles.animationDuration,
     );
 
-    _fadeIn = CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    );
+    _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
 
-    _slideUp = Tween<Offset>(
-      begin: ValidacionStyles.slideBeginOffset,
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _slideUp =
+        Tween<Offset>(
+          begin: ValidacionStyles.slideBeginOffset,
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
 
     _animController.forward();
   }
@@ -94,31 +90,27 @@ class _ValidacionPageState extends State<ValidacionPage>
   }
 
   Future<void> _validarCodigo() async {
-    // 🔥 2. Bloqueamos doble click
     if (_isLoading) return;
 
     // Pequeña validación para asegurar que puso los 6 dígitos
     if (_codigoController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Ingresa los 6 dígitos completos")),
+        SnackBar(content: Text(context.tr('validation.complete_digits'))),
       );
       return;
     }
 
-    // 🔥 3. Activamos modo carga
     setState(() {
       _isLoading = true;
     });
 
-    final servicio = ServicioAutenticacion();
-    final exito = await servicio.verificarCodigo(
+    final exito = await _authService.verificarCodigo(
       widget.correo,
       _codigoController.text,
     );
 
     if (!mounted) return;
 
-    // 🔥 4. Desactivamos modo carga
     setState(() {
       _isLoading = false;
     });
@@ -132,9 +124,7 @@ class _ValidacionPageState extends State<ValidacionPage>
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Código inválido o expirado"),
-        ),
+        SnackBar(content: Text(context.tr('validation.invalid_code'))),
       );
     }
   }
@@ -150,18 +140,12 @@ class _ValidacionPageState extends State<ValidacionPage>
           Positioned(
             top: 40,
             right: -80,
-            child: GlowCircle(
-              size: 240,
-              color: ValidacionStyles.glowCyan,
-            ),
+            child: GlowCircle(size: 240, color: ValidacionStyles.glowCyan),
           ),
           Positioned(
             bottom: 40,
             left: -60,
-            child: GlowCircle(
-              size: 200,
-              color: ValidacionStyles.glowBlue,
-            ),
+            child: GlowCircle(size: 200, color: ValidacionStyles.glowBlue),
           ),
           SafeArea(
             child: FadeTransition(
@@ -197,9 +181,10 @@ class _ValidacionPageState extends State<ValidacionPage>
                             const ResendCodeRow(),
                             const SizedBox(height: 28),
                             GradientActionButton(
-                              label: "Validar usuario",
+                              label: context.tr('validation.validate_user'),
                               icon: Icons.verified_rounded,
-                              isLoading: _isLoading, // 🔥 5. Le pasamos el estado
+                              isLoading:
+                                  _isLoading,
                               onPressed: _validarCodigo,
                             ),
                             const SizedBox(height: 24),
@@ -211,6 +196,11 @@ class _ValidacionPageState extends State<ValidacionPage>
                 ),
               ),
             ),
+          ),
+          const Positioned(
+            top: 10,
+            right: 12,
+            child: SafeArea(child: PreferencesControls(compact: true)),
           ),
         ],
       ),

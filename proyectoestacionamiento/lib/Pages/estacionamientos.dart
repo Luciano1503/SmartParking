@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../Styles/estacionamientosStyles.dart';
-import '../Widgets/estacionamientosWidgets.dart';
-import '../Services/parking_service.dart'; 
+import 'package:flutter/services.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/estacionamientos_styles.dart';
+import '../Widgets/estacionamientos_widgets.dart';
+import '../Services/parking_service.dart';
 import '../Models/parking_model.dart';
 
 class EstacionamientosPage extends StatefulWidget {
@@ -23,10 +25,22 @@ class _EstacionamientosPageState extends State<EstacionamientosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: EstacionamientosStyles.pageBackground,
       appBar: AppBar(
         backgroundColor: EstacionamientosStyles.appBarBackground,
+        surfaceTintColor: EstacionamientosStyles.appBarBackground,
+        systemOverlayStyle: isDark
+            ? SystemUiOverlayStyle.light.copyWith(
+                statusBarColor: EstacionamientosStyles.appBarBackground,
+                systemNavigationBarColor: const Color(0xFF07111F),
+              )
+            : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: EstacionamientosStyles.appBarBackground,
+                systemNavigationBarColor: EstacionamientosStyles.pageBackground,
+              ),
         elevation: 0,
         title: const PageTitle(),
       ),
@@ -42,7 +56,7 @@ class _EstacionamientosPageState extends State<EstacionamientosPage> {
                 } else if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No hay estacionamientos afiliados.'));
+                  return Center(child: Text(context.tr('parking_list.empty')));
                 }
 
                 final empresas = snapshot.data!;

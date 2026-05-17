@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../Styles/premiumStyles.dart';
-import '../Widgets/premiumWidgets.dart';
+import '../Core/app_localizations.dart';
+import '../Styles/premium_styles.dart';
+import '../Widgets/premium_widgets.dart';
 
 class PremiumPage extends StatelessWidget {
   const PremiumPage({super.key});
@@ -15,38 +16,37 @@ class PremiumPage extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: PremiumStyles.contentPadding,
-              child: const Column(
+              child: Column(
                 children: [
                   PlanCard(
-                    title: "Plan Básico",
-                    subtitle: "Para explorar sin compromiso",
-                    price: "Gratis",
-                    priceNote: "Sin costo",
+                    title: context.tr('premium.basic_plan'),
+                    subtitle: context.tr('premium.basic_subtitle'),
+                    price: context.tr('premium.free'),
+                    priceNote: context.tr('premium.no_cost'),
                     icon: Icons.map_outlined,
                     accentColor: PremiumStyles.successGreen,
                     isPrimary: false,
                     features: [
                       FeatureItem(
                         icon: Icons.location_on_outlined,
-                        text: "Acceso limitado a estacionamientos",
+                        text: context.tr('premium.limited_access'),
                       ),
                       FeatureItem(
                         icon: Icons.map_outlined,
-                        text: "Visualización básica del mapa",
+                        text: context.tr('premium.basic_map'),
                       ),
                       FeatureItem(
                         icon: Icons.campaign_outlined,
-                        text: "Anuncios por defecto",
+                        text: context.tr('premium.default_ads'),
                         disabled: true,
                       ),
                     ],
-                    description:
-                        "Ideal para usuarios que solo necesitan una vista rápida de estacionamientos cercanos.",
+                    description: context.tr('premium.basic_description'),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   PlanCard(
-                    title: "Plan Premium",
-                    subtitle: "La experiencia completa",
+                    title: context.tr('premium.premium_plan'),
+                    subtitle: context.tr('premium.complete_experience'),
                     price: "S/ 38.00",
                     priceNote: "≈ 10 USD / mes",
                     icon: Icons.workspace_premium_rounded,
@@ -55,27 +55,26 @@ class PremiumPage extends StatelessWidget {
                     features: [
                       FeatureItem(
                         icon: Icons.check_circle_outline,
-                        text: "Todo lo del Plan Básico",
+                        text: context.tr('premium.everything_basic'),
                       ),
                       FeatureItem(
                         icon: Icons.history_rounded,
-                        text: "Historial de estacionamientos usados",
+                        text: context.tr('premium.history'),
                       ),
                       FeatureItem(
                         icon: Icons.auto_awesome_rounded,
-                        text: "Información exclusiva con IA",
+                        text: context.tr('premium.ai_info'),
                       ),
                       FeatureItem(
                         icon: Icons.block_rounded,
-                        text: "Sin anuncios",
+                        text: context.tr('premium.no_ads'),
                       ),
                       FeatureItem(
                         icon: Icons.support_agent_rounded,
-                        text: "Soporte prioritario 24/7",
+                        text: context.tr('premium.priority_support'),
                       ),
                     ],
-                    description:
-                        "Diseñado para usuarios frecuentes que buscan comodidad, predicción inteligente y una experiencia sin interrupciones.",
+                    description: context.tr('premium.premium_description'),
                   ),
                 ],
               ),
@@ -86,4 +85,3 @@ class PremiumPage extends StatelessWidget {
     );
   }
 }
-

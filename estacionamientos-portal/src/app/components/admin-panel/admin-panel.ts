@@ -1,103 +1,104 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // 👈 1. Importamos ChangeDetectorRef
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
+import { AuthService } from '../../auth/auth.service';
+import { InoperativeSensor, PendingCompany } from '../../models/admin.models';
+import { AdminService } from '../../services/admin';
+import { RealtimeService } from '../../services/realtime.service';
+import { LanguageService } from '../../core/language.service';
+import { TranslatePipe } from '../../core/translate.pipe';
 
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [CommonModule, HttpClientModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './admin-panel.html',
 })
-export class AdminPanel implements OnInit {
-  
-  pendientes: any[] = [];
-  sensoresInoperativos: any[] = [];
+export class AdminPanel implements OnInit, OnDestroy {
+  pendientes: PendingCompany[] = [];
+  sensoresInoperativos: InoperativeSensor[] = [];
 
-  private socket?: WebSocket;
-  
-  cargandoEmpresas: boolean = true;
-  cargandoSensores: boolean = true;
+  cargandoEmpresas = true;
+  cargandoSensores = true;
+
+  private realtimeSubscription?: Subscription;
 
   constructor(
-    private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private readonly authService: AuthService,
+    private readonly adminService: AdminService,
+    private readonly realtimeService: RealtimeService,
+    private readonly language: LanguageService,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
     this.cargarPendientes();
     this.cargarSensoresInoperativos();
-    this.conectarWebSocket();
+    this.realtimeSubscription = this.realtimeService.parkingUpdates().subscribe({
+      next: () => this.cargarSensoresInoperativos(),
+      error: (error) => console.error('Error en WebSocket admin:', error),
+    });
   }
 
-  cargarPendientes() {
+  ngOnDestroy(): void {
+    this.realtimeSubscription?.unsubscribe();
+  }
+
+  cargarPendientes(): void {
     this.cargandoEmpresas = true;
-    this.http.get<any[]>('http://localhost:8000/admin/pendientes').subscribe({
+    this.adminService.getPendientes().subscribe({
       next: (data) => {
         this.pendientes = Array.isArray(data) ? data : [];
         this.cargandoEmpresas = false;
-        this.cdr.detectChanges(); 
+        this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error("Error al cargar pendientes:", err);
+        console.error('Error al cargar pendientes:', err);
         this.cargandoEmpresas = false;
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
-  cargarSensoresInoperativos() {
+  cargarSensoresInoperativos(): void {
     this.cargandoSensores = true;
-    this.http.get<any>('http://localhost:8000/admin/sensores-inoperativos').subscribe({
+    this.adminService.getSensoresInoperativos().subscribe({
       next: (data) => {
-        console.log("🔥 DATA REAL RECIBIDA DEL BACKEND:", data);
-        
-        if (Array.isArray(data)) {
-            this.sensoresInoperativos = data;
-        } else if (data && data.sensores) {
-            this.sensoresInoperativos = data.sensores;
-        } else {
-            this.sensoresInoperativos = [];
-        }
-        
+        this.sensoresInoperativos = Array.isArray(data) ? data : [];
         this.cargandoSensores = false;
-        this.cdr.detectChanges(); // 👈 3. ¡Obligamos a repintar el HTML!
+        this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error("❌ Error al cargar sensores inoperativos:", err);
+        console.error('Error al cargar sensores inoperativos:', err);
         this.cargandoSensores = false;
-        this.cdr.detectChanges(); // 👈 Repintamos incluso si hay error
-      }
+        this.cdr.detectChanges();
+      },
     });
   }
 
-  procesarSolicitud(id: number, accion: string) {
-    if (!confirm(`¿Estás seguro de que deseas ${accion} esta empresa?`)) return;
+  procesarSolicitud(id: number, accion: 'aprobar' | 'rechazar'): void {
+    const translatedAction = this.language
+      .t(accion === 'aprobar' ? 'admin.approve' : 'admin.reject')
+      .toLowerCase();
+    if (!confirm(this.language.t('admin.confirm_action', { action: translatedAction }))) return;
 
-    this.http.post(`http://localhost:8000/admin/aprobar/${id}?accion=${accion}`, {}).subscribe({
-      next: (res: any) => {
-        alert(res.mensaje || "Operación exitosa.");
+    this.adminService.gestionarSolicitud(id, accion).subscribe({
+      next: (res) => {
+        alert(res.mensaje || this.language.t('admin.success'));
         this.cargarPendientes();
       },
       error: (err) => {
-        alert("Error al procesar la solicitud");
+        alert(this.language.t('admin.process_error'));
         console.error(err);
-      }
+      },
     });
   }
 
-  private conectarWebSocket() {
-    this.socket = new WebSocket('ws://localhost:8000/ws/parking');
-    
-    this.socket.onmessage = (event) => {
-      console.log("⚡ [WS ADMIN] Alerta de hardware detectada. Recargando tabla...");
-      // Si el WebSocket avisa que algo cambió, recargamos la lista silenciosamente
-      this.cargarSensoresInoperativos(); 
-    };
-
-    this.socket.onclose = () => {
-      console.warn("🔌 [WS ADMIN] Desconectado. Reintentando...");
-      setTimeout(() => this.conectarWebSocket(), 3000);
-    };
+  cerrarSesion(): void {
+    this.authService.limpiarSesion();
+    this.router.navigate(['/login'], { replaceUrl: true });
   }
 }
