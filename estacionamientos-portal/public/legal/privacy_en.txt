@@ -1,0 +1,24 @@
+﻿PRIVACY POLICY - SMARTPARKING SOLUTIONS
+
+Effective date: 05/17/2026
+
+1. Data collected
+SmartParking Solutions collects data required for the service, such as email, names, phone number, ID number, vehicle license plate, vehicle model, and parking usage status.
+
+2. Purpose of data use
+Data is used exclusively to authenticate users, verify accounts, manage parking lots, display space availability, register movements, and improve the service experience.
+
+3. Location data
+The application may request location access to show nearby parking lots and improve user orientation. This information is used only within the app functionality.
+
+4. Information protection
+SmartParking applies good practices to protect user information. Access to data is limited to necessary system functions and authorized administrative processes.
+
+5. No data sale
+SmartParking Solutions does not sell, rent, or share personal data with third parties for commercial purposes. Information may only be shared when required for legal or technical service obligations.
+
+6. Emails and notifications
+The system may send emails related to verification codes, business request status, approvals, rejections, or important service notices.
+
+7. User rights
+The user may request review, update, or deletion of their data through SmartParking Solutions support channels.

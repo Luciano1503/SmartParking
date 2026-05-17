@@ -11,6 +11,11 @@ const translations: Record<AppLanguage, TranslationMap> = {
     'common.dark_mode': 'Modo oscuro',
     'common.spanish': 'Español',
     'common.english': 'Inglés',
+    'legal.terms_title': 'Terminos y condiciones',
+    'legal.privacy_title': 'Politica de privacidad',
+    'legal.close': 'Cerrar',
+    'legal.loading': 'Cargando documento legal...',
+    'legal.load_error': 'No se pudo cargar el documento legal.',
 
     'login.portal_label': 'Portal empresarial',
     'login.hero_title': 'Gestión inteligente de estacionamientos',
@@ -150,6 +155,11 @@ const translations: Record<AppLanguage, TranslationMap> = {
     'common.dark_mode': 'Dark mode',
     'common.spanish': 'Spanish',
     'common.english': 'English',
+    'legal.terms_title': 'Terms and conditions',
+    'legal.privacy_title': 'Privacy policy',
+    'legal.close': 'Close',
+    'legal.loading': 'Loading legal document...',
+    'legal.load_error': 'Could not load the legal document.',
 
     'login.portal_label': 'Enterprise portal',
     'login.hero_title': 'Smart parking management',

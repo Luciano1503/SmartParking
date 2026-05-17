@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../Core/app_localizations.dart';
 import '../Styles/main_styles.dart';
+import 'legal_links.dart';
 
 class StyledBackground extends StatelessWidget {
   const StyledBackground({super.key});
@@ -229,6 +230,8 @@ class LoginCard extends StatelessWidget {
           CompanyPortalInvite(
             onPressed: isLoading ? null : onCompanyPortalPressed,
           ),
+          const SizedBox(height: 10),
+          const LegalLinksCard(compact: true),
         ],
       ),
     );

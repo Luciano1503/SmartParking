@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../Core/app_localizations.dart';
 import '../Styles/formulario_styles.dart';
 import '../Widgets/formulario_widgets.dart';
+import '../Widgets/legal_links.dart';
 import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
 import '../Services/sesion_usuario.dart';
@@ -350,7 +351,9 @@ class _FormularioPageState extends State<FormularioPage> {
                                 : null,
                           ),
 
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 18),
+                          const LegalLinksCard(),
+                          const SizedBox(height: 24),
                           GradientButton(
                             label: context.tr('form.register'),
                             icon: Icons.how_to_reg_rounded,

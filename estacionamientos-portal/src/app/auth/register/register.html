@@ -85,8 +85,14 @@
         <div class="col-span-2 flex items-start gap-2 pt-1">
           <input type="checkbox" formControlName="aceptar_terminos" class="w-3.5 h-3.5 mt-0.5 accent-[#1558D6] cursor-pointer" />
           <span class="text-[#6B7A99] text-[11px] leading-relaxed">
-            {{ 'register.accept_terms' | tr }} <a href="#" class="text-[#1558D6] font-medium hover:underline">{{ 'register.terms' | tr }}</a>
-            {{ 'register.and_the' | tr }} <a href="#" class="text-[#1558D6] font-medium hover:underline">{{ 'register.privacy' | tr }}</a>.
+            {{ 'register.accept_terms' | tr }}
+            <a href="#" (click)="openLegal('terms', $event)" class="text-[#1558D6] font-medium hover:underline">
+              {{ 'register.terms' | tr }}
+            </a>
+            {{ 'register.and_the' | tr }}
+            <a href="#" (click)="openLegal('privacy', $event)" class="text-[#1558D6] font-medium hover:underline">
+              {{ 'register.privacy' | tr }}
+            </a>.
           </span>
         </div>
 
@@ -147,6 +153,39 @@
               <span class="bg-white/10 border border-white/20 rounded-full px-3 py-1 text-white/80 text-[10px]">Sodimac</span>
             </div>
           </div>
+    </div>
+  </div>
+
+  <div *ngIf="legalModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-8">
+    <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-[#DDE4F0] overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#E8EEF7]">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-[#EEF3FD] text-[#1558D6] flex items-center justify-center">
+            <svg class="w-5 h-5" viewBox="0 0 18 18" fill="none">
+              <path d="M5 2h6l3 3v11H5a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" stroke-width="1.4" />
+              <path d="M11 2v4h4M6 9h6M6 12h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+          </div>
+          <h3 class="text-[#0F1E3A] text-lg font-semibold">{{ legalTitle }}</h3>
+        </div>
+        <button type="button" (click)="closeLegal()" class="text-[#6B7A99] hover:text-[#0F1E3A] transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <div class="h-[360px] overflow-y-auto rounded-xl border border-[#DDE4F0] bg-[#F8FAFE] p-5">
+          <pre class="whitespace-pre-wrap font-sans text-sm leading-6 text-[#4A5875]">{{ legalContent }}</pre>
+        </div>
+      </div>
+
+      <div class="flex justify-end px-6 py-4 border-t border-[#E8EEF7] bg-[#FAFBFE]">
+        <button type="button" (click)="closeLegal()" class="bg-[#1558D6] hover:bg-[#1248BB] text-white rounded-lg px-5 py-2 text-sm font-medium">
+          {{ 'legal.close' | tr }}
+        </button>
+      </div>
     </div>
   </div>
 </div>

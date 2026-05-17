@@ -11,6 +11,14 @@ class AppLocalizations {
     'es': {
       'common.light_mode': 'Modo claro',
       'common.dark_mode': 'Modo oscuro',
+      'legal.terms_title': 'Terminos y condiciones',
+      'legal.privacy_title': 'Politica de privacidad',
+      'legal.notice':
+          'Consulta los documentos legales de SmartParking antes de continuar.',
+      'legal.terms': 'Terminos',
+      'legal.privacy': 'Privacidad',
+      'legal.close': 'Entendido',
+      'legal.load_error': 'No se pudo cargar el documento legal.',
 
       'login.brand_description':
           'Gestiona estacionamientos en universidades,\ncentros comerciales y más',
@@ -208,6 +216,13 @@ class AppLocalizations {
     'en': {
       'common.light_mode': 'Light mode',
       'common.dark_mode': 'Dark mode',
+      'legal.terms_title': 'Terms and conditions',
+      'legal.privacy_title': 'Privacy policy',
+      'legal.notice': 'Review SmartParking legal documents before continuing.',
+      'legal.terms': 'Terms',
+      'legal.privacy': 'Privacy',
+      'legal.close': 'Got it',
+      'legal.load_error': 'Could not load the legal document.',
 
       'login.brand_description':
           'Manage parking across universities,\nshopping centers, and more',

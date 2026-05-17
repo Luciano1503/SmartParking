@@ -18,6 +18,10 @@ export class Register {
   registerForm: FormGroup;
   mensaje = '';
   cargando = false;
+  legalModalOpen = false;
+  legalTitle = '';
+  legalContent = '';
+  legalLoading = false;
 
   constructor(
     private readonly fb: FormBuilder,
@@ -75,5 +79,33 @@ export class Register {
         this.cargando = false;
       },
     });
+  }
+
+  async openLegal(type: 'terms' | 'privacy', event: Event): Promise<void> {
+    event.preventDefault();
+
+    const language = this.language.current();
+    const titleKey = type === 'terms' ? 'legal.terms_title' : 'legal.privacy_title';
+    const fileName = type === 'terms' ? `terms_${language}.txt` : `privacy_${language}.txt`;
+
+    this.legalTitle = this.language.t(titleKey);
+    this.legalContent = this.language.t('legal.loading');
+    this.legalLoading = true;
+    this.legalModalOpen = true;
+
+    try {
+      const response = await fetch(`/legal/${fileName}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Legal document not found: ${fileName}`);
+      this.legalContent = await response.text();
+    } catch (error) {
+      console.error(error);
+      this.legalContent = this.language.t('legal.load_error');
+    } finally {
+      this.legalLoading = false;
+    }
+  }
+
+  closeLegal(): void {
+    this.legalModalOpen = false;
   }
 }

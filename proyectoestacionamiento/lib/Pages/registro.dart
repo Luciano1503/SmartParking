@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'validacion.dart';
 import '../Core/app_localizations.dart';
 import '../Styles/registro_styles.dart';
+import '../Widgets/legal_links.dart';
 import '../Widgets/registro_widgets.dart';
 import '../Widgets/preferences_controls.dart';
 import '../Services/servicio_autenticacion.dart';
@@ -63,6 +64,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         const RegisterInfoBanner(),
                         const SizedBox(height: 28),
                         RegisterEmailCard(controller: correoController),
+                        const SizedBox(height: 16),
+                        const LegalLinksCard(),
                         const SizedBox(height: 32),
                         GradientActionButton(
                           label: context.tr('register.send_code'),
@@ -75,7 +78,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             if (correo.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(context.tr('register.enter_email')),
+                                  content: Text(
+                                    context.tr('register.enter_email'),
+                                  ),
                                 ),
                               );
                               return;

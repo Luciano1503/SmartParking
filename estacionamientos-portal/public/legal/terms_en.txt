@@ -1,0 +1,24 @@
+﻿TERMS AND CONDITIONS - SMARTPARKING SOLUTIONS
+
+Effective date: 05/17/2026
+
+1. Service acceptance
+By using SmartParking Solutions, the user accepts these terms and conditions. The platform allows users to check parking availability, view spaces in real time, and register information required to operate the service.
+
+2. System use
+The user agrees to use the application responsibly. Availability information is updated through sensors and digital services, so a short delay may exist between the physical state of a space and what is shown in the app.
+
+3. Space monitoring
+SmartParking monitors parking space status for management, operational safety, and service improvement. The system may register events such as available, occupied, or not operational.
+
+4. Reservations and tolerance
+When a reservation feature is available, the maximum tolerance will be 15 minutes. After that period, the space may be released for other users according to the rules of the affiliated location.
+
+5. User responsibility
+The user is responsible for registering accurate data, including email, license plate, and contact information. SmartParking is not responsible for errors caused by false or incomplete information.
+
+6. Service availability
+SmartParking aims to keep the platform available, but interruptions may occur due to maintenance, connectivity issues, sensor failures, or external services.
+
+7. Changes to terms
+SmartParking Solutions may update these terms to improve security, clarity, or service operation. Changes will be shown through the platform official channels.
