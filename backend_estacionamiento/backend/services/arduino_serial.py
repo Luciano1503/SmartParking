@@ -12,7 +12,19 @@ import serial.tools.list_ports
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 
-load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+
+def _find_env_path() -> Path:
+    current_file = Path(__file__).resolve()
+    for parent in current_file.parents:
+        env_path = parent / ".env"
+        if env_path.exists():
+            return env_path
+    if len(current_file.parents) > 1:
+        return current_file.parents[1] / ".env"
+    return current_file.parent / ".env"
+
+
+load_dotenv(_find_env_path())
 
 if sys.platform == "win32":
     os.system("chcp 65001 >nul 2>&1")

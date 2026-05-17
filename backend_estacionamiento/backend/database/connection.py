@@ -5,7 +5,19 @@ import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 
-ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
+
+def _find_env_path() -> Path:
+    current_file = Path(__file__).resolve()
+    for parent in current_file.parents:
+        env_path = parent / ".env"
+        if env_path.exists():
+            return env_path
+    if len(current_file.parents) > 1:
+        return current_file.parents[1] / ".env"
+    return current_file.parent / ".env"
+
+
+ENV_PATH = _find_env_path()
 
 
 def get_connection():

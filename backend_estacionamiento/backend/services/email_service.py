@@ -9,8 +9,18 @@ from typing import Iterable
 
 from dotenv import load_dotenv
 
-BACKEND_PATH = Path(__file__).resolve().parents[1]
-ROOT_PATH = Path(__file__).resolve().parents[3]
+CURRENT_FILE = Path(__file__).resolve()
+BACKEND_PATH = CURRENT_FILE.parents[1]
+
+
+def _find_project_root() -> Path:
+    for parent in CURRENT_FILE.parents:
+        if (parent / ".env").exists() or (parent / "proyectoestacionamiento").exists():
+            return parent
+    return BACKEND_PATH
+
+
+ROOT_PATH = _find_project_root()
 ENV_PATH = ROOT_PATH / ".env"
 LOGO_CANDIDATES = [
     BACKEND_PATH / "assets" / "smartparkingEmail.jpg",
