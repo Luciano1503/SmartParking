@@ -13,7 +13,11 @@ class StyledBackground extends StatelessWidget {
           ? AppStyles.backgroundDecoration
           : const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFF8FBFF), Color(0xFFEAF3FF), Color(0xFFDDEBFF)],
+                colors: [
+                  Color(0xFFF8FBFF),
+                  Color(0xFFEAF3FF),
+                  Color(0xFFDDEBFF),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -102,6 +106,7 @@ class LoginCard extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onLoginPressed;
   final VoidCallback onRegisterPressed;
+  final VoidCallback onCompanyPortalPressed;
 
   const LoginCard({
     super.key,
@@ -112,6 +117,7 @@ class LoginCard extends StatelessWidget {
     required this.onTogglePassword,
     required this.onLoginPressed,
     required this.onRegisterPressed,
+    required this.onCompanyPortalPressed,
   });
 
   @override
@@ -216,6 +222,102 @@ class LoginCard extends StatelessWidget {
               child: Text(
                 context.tr('login.register'),
                 style: AppStyles.registerTextStyle,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          CompanyPortalInvite(
+            onPressed: isLoading ? null : onCompanyPortalPressed,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CompanyPortalInvite extends StatelessWidget {
+  final VoidCallback? onPressed;
+
+  const CompanyPortalInvite({super.key, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark
+        ? const Color(0xFF102238).withValues(alpha: 0.86)
+        : const Color(0xFFEFF7FF);
+    final borderColor = isDark
+        ? AppStyles.primaryCyan.withValues(alpha: 0.24)
+        : const Color(0xFFBBD9F4);
+    final textColor = isDark ? Colors.white70 : const Color(0xFF31506E);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [AppStyles.primaryCyan, AppStyles.primaryBlue],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppStyles.primaryCyan.withValues(alpha: 0.26),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.business_center_outlined,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.tr('login.company_prompt'),
+                  style: TextStyle(
+                    color: textColor,
+                    height: 1.35,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onPressed,
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: Text(context.tr('login.company_action')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppStyles.primaryBlue,
+                side: const BorderSide(color: AppStyles.primaryBlue),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                textStyle: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),

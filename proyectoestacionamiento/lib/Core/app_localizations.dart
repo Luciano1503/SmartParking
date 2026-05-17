@@ -20,6 +20,10 @@ class AppLocalizations {
       'login.password': 'Contraseña',
       'login.sign_in': 'Iniciar sesión',
       'login.register': '¿No tienes cuenta? Regístrate aquí',
+      'login.company_prompt':
+          'Eres empresa? Te invitamos a nuestra pagina exclusiva para empresas.',
+      'login.company_action': 'Ir al portal empresarial',
+      'login.company_error': 'No se pudo abrir el portal empresarial',
       'login.empty_credentials': 'Ingrese correo y contraseña',
       'login.invalid_credentials': 'Correo o contraseña incorrectos',
 
@@ -159,7 +163,8 @@ class AppLocalizations {
       'about.realtime_maps_subtitle':
           'Visualiza disponibilidad al instante desde la app',
       'about.history': 'Historial de uso',
-      'about.history_subtitle': 'Consulta tus ingresos y egresos cuando quieras',
+      'about.history_subtitle':
+          'Consulta tus ingresos y egresos cuando quieras',
       'about.security': 'Seguridad garantizada',
       'about.security_subtitle': 'Acceso controlado y monitoreo constante 24/7',
       'about.technology': 'Nuestra tecnología',
@@ -212,6 +217,10 @@ class AppLocalizations {
       'login.password': 'Password',
       'login.sign_in': 'Sign in',
       'login.register': "Don't have an account? Register here",
+      'login.company_prompt':
+          'Are you a company? Visit our exclusive business portal.',
+      'login.company_action': 'Go to business portal',
+      'login.company_error': 'Could not open the business portal',
       'login.empty_credentials': 'Enter email and password',
       'login.invalid_credentials': 'Incorrect email or password',
 
@@ -285,7 +294,8 @@ class AppLocalizations {
       'map.search': 'Search',
       'map.detecting_location': 'Detecting your location...',
       'map.unavailable': 'Location unavailable',
-      'map.enable_help': 'Enable GPS to see the\nclosest parking spots near you',
+      'map.enable_help':
+          'Enable GPS to see the\nclosest parking spots near you',
       'map.enable_location': 'Enable location',
       'map.user_location': 'Your location',
       'map.search_legend': 'Search',
@@ -347,12 +357,13 @@ class AppLocalizations {
       'about.offerings': 'What we offer',
       'about.smart_parking': 'Smart parking in real time',
       'about.realtime_maps': 'Real-time maps',
-      'about.realtime_maps_subtitle':
-          'See availability instantly from the app',
+      'about.realtime_maps_subtitle': 'See availability instantly from the app',
       'about.history': 'Usage history',
-      'about.history_subtitle': 'Review your entries and exits whenever you want',
+      'about.history_subtitle':
+          'Review your entries and exits whenever you want',
       'about.security': 'Guaranteed security',
-      'about.security_subtitle': 'Controlled access and constant 24/7 monitoring',
+      'about.security_subtitle':
+          'Controlled access and constant 24/7 monitoring',
       'about.technology': 'Our technology',
       'about.one_app': 'One app to manage everything',
       'about.tech_description':
@@ -398,7 +409,8 @@ class AppLocalizations {
     Locale? locale,
     TranslationParams params = const {},
   }) {
-    final language = locale?.languageCode ?? AppPreferences.instance.locale.languageCode;
+    final language =
+        locale?.languageCode ?? AppPreferences.instance.locale.languageCode;
     final template =
         _translations[language]?[key] ?? _translations['es']?[key] ?? key;
 

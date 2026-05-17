@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:proyectoestacionamiento/Pages/mapa.dart';
+import 'package:flutter/services.dart';
 import 'registro.dart';
+import '../Core/api_config.dart';
 import '../Core/app_localizations.dart';
 import '../Core/app_preferences.dart';
 import '../Styles/main_styles.dart';
@@ -51,6 +53,9 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
+  static const MethodChannel _navigationChannel = MethodChannel(
+    'smartparking/navigation',
+  );
   final ServicioAutenticacion _authService = const ServicioAutenticacion();
   bool _obscurePassword = true;
 
@@ -147,6 +152,27 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  Future<void> _openCompanyPortal() async {
+    var opened = false;
+
+    try {
+      opened =
+          await _navigationChannel.invokeMethod<bool>(
+            'openUrl',
+            ApiConfig.companyPortalUrl,
+          ) ??
+          false;
+    } on PlatformException {
+      opened = false;
+    }
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('login.company_error'))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,6 +218,7 @@ class _LoginPageState extends State<LoginPage>
                         onTogglePassword: _togglePasswordVisibility,
                         onLoginPressed: _loginUsuario,
                         onRegisterPressed: _goToRegister,
+                        onCompanyPortalPressed: _openCompanyPortal,
                       ),
                     ],
                   ),

@@ -1,7 +1,12 @@
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.28:8000',
+    defaultValue: 'https://smartparking-production-9a89.up.railway.app',
+  );
+
+  static const String companyPortalUrl = String.fromEnvironment(
+    'COMPANY_PORTAL_URL',
+    defaultValue: 'https://smart-parking-mlma.vercel.app/login',
   );
 
   static const String _parkingSocketOverride = String.fromEnvironment(
