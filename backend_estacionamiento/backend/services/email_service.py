@@ -9,15 +9,18 @@ from typing import Iterable
 
 from dotenv import load_dotenv
 
+BACKEND_PATH = Path(__file__).resolve().parents[1]
 ROOT_PATH = Path(__file__).resolve().parents[3]
 ENV_PATH = ROOT_PATH / ".env"
-LOGO_PATH = (
+LOGO_CANDIDATES = [
+    BACKEND_PATH / "assets" / "smartparkingEmail.jpg",
     ROOT_PATH
     / "proyectoestacionamiento"
     / "assets"
     / "images"
-    / "smartparkingEmail.jpg"
-)
+    / "smartparkingEmail.jpg",
+]
+LOGO_PATH = next((path for path in LOGO_CANDIDATES if path.exists()), LOGO_CANDIDATES[0])
 LOGO_CID = "smartparking-logo"
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
