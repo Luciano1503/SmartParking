@@ -37,7 +37,20 @@ TIEMPO_CONFIRMACION = float(os.getenv("TIEMPO_CONFIRMACION_OCUPADO", "15"))
 UMBRAL_ERROR = int(os.getenv("UMBRAL_ERROR_SENSOR", "5"))
 UMBRAL_RECUPERACION = int(os.getenv("UMBRAL_RECUPERACION_SENSOR", "3"))
 SERIAL_STALE_TIMEOUT = float(os.getenv("SERIAL_STALE_TIMEOUT", "12"))
-BACKEND_NOTIFY_URL = os.getenv("BACKEND_NOTIFY_URL", "http://localhost:8000/notificar_cambio")
+RAILWAY_BACKEND_URL = "https://smartparking-production-9a89.up.railway.app"
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", RAILWAY_BACKEND_URL).rstrip("/")
+BACKEND_NOTIFY_URL = os.getenv(
+    "BACKEND_NOTIFY_URL",
+    f"{BACKEND_BASE_URL}/notificar_cambio",
+)
+BACKEND_SENSOR_STATUS_URL = os.getenv(
+    "BACKEND_SENSOR_STATUS_URL",
+    f"{BACKEND_BASE_URL}/parking/sensor/estado",
+)
+BACKEND_API_TIMEOUT = float(os.getenv("BACKEND_API_TIMEOUT", "8"))
+SYNC_MODE = os.getenv("ARDUINO_SYNC_MODE", "api").strip().lower()
+if SYNC_MODE not in {"api", "db"}:
+    SYNC_MODE = "api"
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -144,6 +157,40 @@ def obtener_estado_actual_db(conn, espacio_id):
     return _estado_normalizado(resultado["estado_actual"]) if resultado else None
 
 
+def _sensor_lookup_url(sensor_codigo):
+    return f"{BACKEND_BASE_URL}/parking/sensor/{sensor_codigo}"
+
+
+def obtener_sensor_backend(sensor_codigo):
+    try:
+        response = requests.get(
+            _sensor_lookup_url(sensor_codigo),
+            timeout=BACKEND_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as exc:
+        print(f"   [ERROR] No se pudo consultar el sensor en Railway: {exc}")
+        return None
+    except ValueError as exc:
+        print(f"   [ERROR] Respuesta invalida del backend: {exc}")
+        return None
+
+    espacio_id = data.get("espacio_id")
+    estado_actual = _estado_normalizado(data.get("estado_actual"))
+    codigo = data.get("codigo", "sin codigo")
+
+    if not espacio_id or not estado_actual:
+        print("   [ERROR] El backend no devolvio datos completos del sensor.")
+        return None
+
+    print(
+        f"   [OK] Sensor {sensor_codigo} -> Espacio '{codigo}' "
+        f"(ID: {espacio_id})"
+    )
+    return {"espacio_id": espacio_id, "estado_actual": estado_actual}
+
+
 def notificar_cambio(espacio_id, nuevo_estado, fecha):
     payload = {
         "espacio_id": espacio_id,
@@ -162,7 +209,44 @@ def notificar_cambio(espacio_id, nuevo_estado, fecha):
         print(f"   [!] No se pudo notificar al WebSocket: {exc}")
 
 
-def actualizar_estado(conn, espacio_id, nuevo_estado):
+def actualizar_estado_backend(sensor_codigo, nuevo_estado):
+    nuevo_estado = _estado_normalizado(nuevo_estado)
+    payload = {
+        "sensor_codigo": sensor_codigo,
+        "estado": nuevo_estado,
+        "origen": "arduino_serial",
+    }
+
+    try:
+        response = requests.post(
+            BACKEND_SENSOR_STATUS_URL,
+            json=payload,
+            timeout=BACKEND_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as exc:
+        print(f"\n   [ERROR] No se pudo sincronizar con Railway: {exc}")
+        return {"ok": False, "changed": False, "estado": None}
+    except ValueError as exc:
+        print(f"\n   [ERROR] Respuesta invalida del backend: {exc}")
+        return {"ok": False, "changed": False, "estado": None}
+
+    estado_confirmado = _estado_normalizado(data.get("nuevo_estado") or nuevo_estado)
+    if data.get("changed"):
+        print(
+            f"\n   [API] Railway sincronizado: "
+            f"{data.get('estado_anterior')} -> {estado_confirmado}"
+        )
+
+    return {
+        "ok": bool(data.get("ok", True)),
+        "changed": bool(data.get("changed", False)),
+        "estado": estado_confirmado,
+    }
+
+
+def actualizar_estado_db(conn, espacio_id, nuevo_estado):
     nuevo_estado = _estado_normalizado(nuevo_estado)
     ahora = datetime.now()
     cursor = conn.cursor()
@@ -262,10 +346,20 @@ def actualizar_estado(conn, espacio_id, nuevo_estado):
             cursor.close()
 
 
+def actualizar_estado(conn, espacio_id, nuevo_estado):
+    if SYNC_MODE == "db":
+        return actualizar_estado_db(conn, espacio_id, nuevo_estado)
+    return actualizar_estado_backend(SENSOR_CODIGO, nuevo_estado)
+
+
 def imprimir_banner():
     print("\n" + "=" * 60)
     print("  [P] SmartParking -- Arduino Serial Bridge")
-    print("  Sensor HC-SR04 -> PostgreSQL + WebSocket")
+    if SYNC_MODE == "api":
+        print("  Sensor HC-SR04 -> Railway Backend + WebSocket")
+        print(f"  Backend: {BACKEND_BASE_URL}")
+    else:
+        print("  Sensor HC-SR04 -> PostgreSQL local + WebSocket")
     print("=" * 60)
 
 
@@ -305,26 +399,40 @@ def iniciar_puente():
                 time.sleep(3)
                 continue
 
-            print("\n[DB] Conectando a la base de datos...")
-            conn = conectar_db()
-            if not conn:
-                print("\n[ERROR] Sin base de datos. Reintentando en 3s...")
-                time.sleep(3)
-                continue
+            if SYNC_MODE == "db":
+                print("\n[DB] Conectando a la base de datos...")
+                conn = conectar_db()
+                if not conn:
+                    print("\n[ERROR] Sin base de datos. Reintentando en 3s...")
+                    time.sleep(3)
+                    continue
 
-            print(f"\n[SENSOR] Buscando espacio para sensor: {SENSOR_CODIGO}")
-            espacio_id = obtener_espacio_id(conn, SENSOR_CODIGO)
-            if not espacio_id:
-                print("\n[ERROR] Sensor no registrado en BD. Reintentando en 3s...")
-                time.sleep(3)
-                continue
+                print(f"\n[SENSOR] Buscando espacio para sensor: {SENSOR_CODIGO}")
+                espacio_id = obtener_espacio_id(conn, SENSOR_CODIGO)
+                if not espacio_id:
+                    print("\n[ERROR] Sensor no registrado en BD. Reintentando en 3s...")
+                    time.sleep(3)
+                    continue
+
+                estado_db_actual = obtener_estado_actual_db(conn, espacio_id)
+            else:
+                print("\n[API] Conectando con backend en Railway...")
+                print(f"   URL: {BACKEND_BASE_URL}")
+                print(f"\n[SENSOR] Buscando espacio para sensor: {SENSOR_CODIGO}")
+                sensor_info = obtener_sensor_backend(SENSOR_CODIGO)
+                if not sensor_info:
+                    print("\n[ERROR] Sensor no disponible en backend. Reintentando en 3s...")
+                    time.sleep(3)
+                    continue
+
+                espacio_id = sensor_info["espacio_id"]
+                estado_db_actual = sensor_info["estado_actual"]
 
             print(f"\n[SERIAL] Conectando al Arduino en {puerto} @ {BAUD_RATE} baud...")
             arduino = serial.Serial(puerto, BAUD_RATE, timeout=1)
             preparar_arduino(arduino)
             print(f"   [OK] Arduino conectado en {puerto}")
 
-            estado_db_actual = obtener_estado_actual_db(conn, espacio_id)
             tiempo_inicio_deteccion = None
             ocupado_confirmado = estado_db_actual == "ocupado"
             lecturas_error = 0

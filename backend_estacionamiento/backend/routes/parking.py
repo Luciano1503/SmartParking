@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from services.parking_service import ParkingService
+from services.realtime_service import manager
 
 router = APIRouter(prefix="/parking", tags=["Parking"])
 
@@ -30,6 +31,12 @@ class ParkingConfigSchema(BaseModel):
     pisos: List[PisoSchema]
 
 
+class SensorStatusSchema(BaseModel):
+    sensor_codigo: str
+    estado: str
+    origen: Optional[str] = None
+
+
 @router.get("/lista")
 def listar_estacionamientos():
     try:
@@ -50,5 +57,43 @@ def configurar_estacionamiento(config: ParkingConfigSchema):
 def detalle_mapa(estacionamiento_id: int):
     try:
         return ParkingService.detalle_mapa(estacionamiento_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/sensor/{sensor_codigo}")
+def obtener_sensor(sensor_codigo: str):
+    try:
+        return ParkingService.obtener_sensor(sensor_codigo)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/sensor/estado")
+async def actualizar_estado_sensor(data: SensorStatusSchema):
+    try:
+        result = ParkingService.actualizar_estado_sensor(
+            data.sensor_codigo,
+            data.estado,
+            data.origen,
+        )
+
+        if result.get("changed"):
+            await manager.broadcast(
+                {
+                    "espacio_id": result["espacio_id"],
+                    "codigo": result["codigo"],
+                    "nuevo_estado": result["nuevo_estado"],
+                    "estacionamiento_id": result["estacionamiento_id"],
+                    "fecha": result["fecha"],
+                    "origen": result["origen"],
+                }
+            )
+
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

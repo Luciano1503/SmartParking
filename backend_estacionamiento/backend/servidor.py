@@ -10,7 +10,7 @@ from database.session import db_cursor
 from routes import auth, parking
 from services.realtime_service import manager
 
-APP_VERSION = "railway-path-fix-2026-05-17"
+APP_VERSION = "railway-iot-gateway-2026-05-17"
 
 app = FastAPI()
 _realtime_db_task: asyncio.Task | None = None

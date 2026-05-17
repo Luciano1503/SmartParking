@@ -121,3 +121,94 @@ class ParkingRepository:
             (zona_id,),
         )
         return cur.fetchall()
+
+    @staticmethod
+    def find_space_by_sensor(cur, sensor_codigo: str, lock: bool = False):
+        lock_clause = "FOR UPDATE OF e" if lock else ""
+        cur.execute(
+            f"""
+            SELECT
+                e.id AS espacio_id,
+                e.codigo,
+                e.estado_actual,
+                e.sensor_codigo,
+                est.id AS estacionamiento_id
+            FROM espacio e
+            JOIN zona z ON e.zona_id = z.id
+            JOIN nivel n ON z.nivel_id = n.id
+            JOIN estacionamiento est ON n.estacionamiento_id = est.id
+            WHERE e.sensor_codigo = %s
+            {lock_clause};
+            """,
+            (sensor_codigo,),
+        )
+        return cur.fetchone()
+
+    @staticmethod
+    def update_space_status(cur, espacio_id: int, nuevo_estado: str, fecha):
+        cur.execute(
+            """
+            UPDATE espacio
+            SET estado_actual = %s, ultimo_update = %s
+            WHERE id = %s;
+            """,
+            (nuevo_estado, fecha, espacio_id),
+        )
+
+    @staticmethod
+    def create_open_movement(cur, espacio_id: int, fecha):
+        cur.execute(
+            """
+            INSERT INTO movimiento_estacionamiento
+                (espacio_id, fecha_inicio, metodo_deteccion, confirmado, confianza)
+            SELECT %s, %s, 'auto', TRUE, 1.0
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM movimiento_estacionamiento
+                WHERE espacio_id = %s AND fecha_fin IS NULL
+            );
+            """,
+            (espacio_id, fecha, espacio_id),
+        )
+        return cur.rowcount
+
+    @staticmethod
+    def close_open_movement(cur, espacio_id: int, fecha):
+        cur.execute(
+            """
+            UPDATE movimiento_estacionamiento
+            SET fecha_fin = %s,
+                duracion = %s - fecha_inicio
+            WHERE espacio_id = %s AND fecha_fin IS NULL;
+            """,
+            (fecha, fecha, espacio_id),
+        )
+        return cur.rowcount
+
+    @staticmethod
+    def update_last_status_record(cur, espacio_id: int, nuevo_estado: str, fecha):
+        cur.execute(
+            """
+            UPDATE registro_estado
+            SET estado = %s, fecha = %s
+            WHERE id = (
+                SELECT id
+                FROM registro_estado
+                WHERE espacio_id = %s
+                ORDER BY id DESC
+                LIMIT 1
+            );
+            """,
+            (nuevo_estado, fecha, espacio_id),
+        )
+        return cur.rowcount
+
+    @staticmethod
+    def create_status_record(cur, espacio_id: int, nuevo_estado: str, fecha):
+        cur.execute(
+            """
+            INSERT INTO registro_estado (espacio_id, estado, fecha)
+            VALUES (%s, %s, %s);
+            """,
+            (espacio_id, nuevo_estado, fecha),
+        )
