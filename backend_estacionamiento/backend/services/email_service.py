@@ -42,6 +42,7 @@ SMTP_TIMEOUT_SECONDS = 8
 DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
 DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
 RESEND_API_URL = "https://api.resend.com/emails"
+MAILTRAP_API_URL = "https://send.api.mailtrap.io/api/send"
 HTTP_TIMEOUT_SECONDS = 20
 
 EMOJI_PARKING = "\U0001F17F\uFE0F"
@@ -78,7 +79,10 @@ def _load_email_env() -> None:
 
 def _email_provider() -> str:
     _load_email_env()
-    return os.getenv("EMAIL_PROVIDER", "auto").strip().lower()
+    provider = os.getenv("EMAIL_PROVIDER", "auto").strip().lower().replace("-", "_")
+    if provider in {"mailtrapapi", "mailtrap_api"}:
+        return "mailtrap_api"
+    return provider
 
 
 def _parse_smtp_ports(provider: str, host: str) -> list[int]:
@@ -136,9 +140,17 @@ def _resend_configured() -> bool:
     return bool(os.getenv("RESEND_API_KEY", "").strip())
 
 
+def _mailtrap_api_configured() -> bool:
+    _load_email_env()
+    return bool(os.getenv("MAILTRAP_API_TOKEN", "").strip())
+
+
 def _uses_http_email() -> bool:
     provider = _email_provider()
-    return provider == "resend" or (provider == "auto" and _resend_configured())
+    return (
+        provider in {"resend", "mailtrap_api"}
+        or (provider == "auto" and (_resend_configured() or _mailtrap_api_configured()))
+    )
 
 
 def email_delivery_status() -> dict:
@@ -150,6 +162,7 @@ def email_delivery_status() -> dict:
     return {
         "provider": provider,
         "resend_configurado": _resend_configured(),
+        "mailtrap_api_configurado": _mailtrap_api_configured(),
         "smtp_host": smtp_host,
         "smtp_port": os.getenv("SMTP_PORT", "").strip() or None,
         "smtp_usuario_configurado": bool(
@@ -160,7 +173,9 @@ def email_delivery_status() -> dict:
         ),
         "recomendado_railway": (
             "ok"
-            if provider in {"mailtrap", "smtp"} or _resend_configured()
+            if provider in {"mailtrap", "mailtrap_api", "smtp"}
+            or _resend_configured()
+            or _mailtrap_api_configured()
             else "resend_o_mailtrap"
         ),
     }
@@ -299,6 +314,42 @@ def _send_with_resend(to_list: list[str], subject: str, html_message: str) -> No
         )
 
 
+def _send_with_mailtrap_api(to_list: list[str], subject: str, html_message: str) -> None:
+    _load_email_env()
+    token = os.getenv("MAILTRAP_API_TOKEN", "").strip()
+    from_email = (
+        os.getenv("MAILTRAP_FROM", "")
+        or os.getenv("SMTP_FROM", "")
+        or "SmartParking Solutions <hello@smartparking.com>"
+    ).strip()
+
+    if not token:
+        raise RuntimeError("Falta MAILTRAP_API_TOKEN en Railway.")
+    if not from_email:
+        raise RuntimeError("Falta MAILTRAP_FROM en Railway.")
+
+    response = requests.post(
+        MAILTRAP_API_URL,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": from_email,
+            "to": [{"email": email} for email in to_list],
+            "subject": subject,
+            "html": html_message.strip(),
+            "category": "SmartParking",
+        },
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Mailtrap API rechazo el correo ({response.status_code}): {response.text}"
+        )
+
+
 def _send_email(recipients: str | Iterable[str], subject: str, html_message: str) -> None:
     to_list = [recipients] if isinstance(recipients, str) else list(recipients)
 
@@ -307,6 +358,18 @@ def _send_email(recipients: str | Iterable[str], subject: str, html_message: str
 
     provider = _email_provider()
     errors: list[str] = []
+
+    if provider in {"auto", "mailtrap_api"} and _mailtrap_api_configured():
+        try:
+            _send_with_mailtrap_api(to_list, subject, html_message)
+            return
+        except Exception as exc:
+            errors.append(f"mailtrap_api: {exc}")
+            if provider == "mailtrap_api":
+                raise RuntimeError("No se pudo enviar el correo. " + " | ".join(errors)) from exc
+
+    if provider == "mailtrap_api":
+        raise RuntimeError("No se pudo enviar el correo. Falta MAILTRAP_API_TOKEN en Railway.")
 
     if provider in {"auto", "resend"} and _resend_configured():
         try:
