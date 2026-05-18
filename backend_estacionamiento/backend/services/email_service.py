@@ -1,4 +1,5 @@
 import os
+import re
 import smtplib
 import socket
 from email.header import Header
@@ -314,6 +315,21 @@ def _send_with_resend(to_list: list[str], subject: str, html_message: str) -> No
         )
 
 
+def _parse_mail_address(value: str, default_name: str) -> dict:
+    cleaned = (value or "").strip()
+    match = re.fullmatch(r"(.+?)\s*<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>", cleaned)
+    if match:
+        return {
+            "name": match.group(1).strip().strip('"'),
+            "email": match.group(2).strip(),
+        }
+
+    return {
+        "name": default_name,
+        "email": cleaned,
+    }
+
+
 def _send_with_mailtrap_api(to_list: list[str], subject: str, html_message: str) -> None:
     _load_email_env()
     token = os.getenv("MAILTRAP_API_TOKEN", "").strip()
@@ -328,14 +344,17 @@ def _send_with_mailtrap_api(to_list: list[str], subject: str, html_message: str)
     if not from_email:
         raise RuntimeError("Falta MAILTRAP_FROM en Railway.")
 
+    sender = _parse_mail_address(from_email, "SmartParking Solutions")
+
     response = requests.post(
         MAILTRAP_API_URL,
         headers={
+            "Api-Token": token,
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
         json={
-            "from": from_email,
+            "from": sender,
             "to": [{"email": email} for email in to_list],
             "subject": subject,
             "html": html_message.strip(),
