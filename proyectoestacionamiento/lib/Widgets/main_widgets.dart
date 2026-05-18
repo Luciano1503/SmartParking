@@ -226,11 +226,11 @@ class LoginCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           CompanyPortalInvite(
             onPressed: isLoading ? null : onCompanyPortalPressed,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           const LegalLinksCard(compact: true),
         ],
       ),
@@ -254,77 +254,87 @@ class CompanyPortalInvite extends StatelessWidget {
         : const Color(0xFFBBD9F4);
     final textColor = isDark ? Colors.white70 : const Color(0xFF31506E);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [AppStyles.primaryCyan, AppStyles.primaryBlue],
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onPressed,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [AppStyles.primaryCyan, AppStyles.primaryBlue],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppStyles.primaryCyan.withValues(alpha: 0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppStyles.primaryCyan.withValues(alpha: 0.26),
-                      blurRadius: 14,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.business_center_outlined,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.tr('login.company_prompt'),
-                  style: TextStyle(
-                    color: textColor,
-                    height: 1.35,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              child: const Icon(
+                Icons.business_center_outlined,
+                color: Colors.white,
+                size: 16,
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onPressed,
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: Text(context.tr('login.company_action')),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppStyles.primaryBlue,
-                side: const BorderSide(color: AppStyles.primaryBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                textStyle: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.tr('login.company_prompt'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textColor,
+                  height: 1.22,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppStyles.primaryBlue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppStyles.primaryBlue.withValues(alpha: 0.55),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 14,
+                    color: AppStyles.primaryBlue,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    context.tr('login.company_action_short'),
+                    style: const TextStyle(
+                      color: AppStyles.primaryBlue,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

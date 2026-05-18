@@ -31,6 +31,7 @@ class AppLocalizations {
       'login.company_prompt':
           'Eres empresa? Te invitamos a nuestra pagina exclusiva para empresas.',
       'login.company_action': 'Ir al portal empresarial',
+      'login.company_action_short': 'Portal',
       'login.company_error': 'No se pudo abrir el portal empresarial',
       'login.empty_credentials': 'Ingrese correo y contraseña',
       'login.invalid_credentials': 'Correo o contraseña incorrectos',
@@ -235,6 +236,7 @@ class AppLocalizations {
       'login.company_prompt':
           'Are you a company? Visit our exclusive business portal.',
       'login.company_action': 'Go to business portal',
+      'login.company_action_short': 'Portal',
       'login.company_error': 'Could not open the business portal',
       'login.empty_credentials': 'Enter email and password',
       'login.invalid_credentials': 'Incorrect email or password',

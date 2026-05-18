@@ -21,10 +21,13 @@ class LegalLinksCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(compact ? 12 : 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 14,
+        vertical: compact ? 8 : 14,
+      ),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(compact ? 14 : 18),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -36,36 +39,40 @@ class LegalLinksCard extends StatelessWidget {
               Icon(
                 Icons.verified_user_outlined,
                 color: const Color(0xFF0B7CFF),
-                size: compact ? 18 : 20,
+                size: compact ? 15 : 20,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: compact ? 6 : 8),
               Expanded(
                 child: Text(
                   context.tr('legal.notice'),
                   style: TextStyle(
                     color: textColor,
-                    fontSize: compact ? 12 : 13,
-                    height: 1.35,
+                    fontSize: compact ? 10.5 : 13,
+                    height: compact ? 1.2 : 1.35,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: compact ? 1 : null,
+                  overflow: compact ? TextOverflow.ellipsis : null,
                 ),
               ),
             ],
           ),
-          SizedBox(height: compact ? 6 : 8),
+          SizedBox(height: compact ? 4 : 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 4,
+            spacing: compact ? 6 : 8,
+            runSpacing: compact ? 2 : 4,
             children: [
               _LegalChip(
                 label: context.tr('legal.terms'),
                 icon: Icons.description_outlined,
+                compact: compact,
                 onPressed: () =>
                     showLegalDocument(context, LegalDocumentType.terms),
               ),
               _LegalChip(
                 label: context.tr('legal.privacy'),
                 icon: Icons.privacy_tip_outlined,
+                compact: compact,
                 onPressed: () =>
                     showLegalDocument(context, LegalDocumentType.privacy),
               ),
@@ -80,11 +87,13 @@ class LegalLinksCard extends StatelessWidget {
 class _LegalChip extends StatelessWidget {
   final String label;
   final IconData icon;
+  final bool compact;
   final VoidCallback onPressed;
 
   const _LegalChip({
     required this.label,
     required this.icon,
+    required this.compact,
     required this.onPressed,
   });
 
@@ -92,15 +101,23 @@ class _LegalChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 16),
+      icon: Icon(icon, size: compact ? 13 : 16),
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: const Color(0xFF0B7CFF),
         side: const BorderSide(color: Color(0xFF0B7CFF)),
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        visualDensity: compact
+            ? const VisualDensity(horizontal: -3, vertical: -3)
+            : VisualDensity.compact,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 9 : 12,
+          vertical: compact ? 5 : 8,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        textStyle: TextStyle(
+          fontSize: compact ? 10.5 : 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
