@@ -35,7 +35,7 @@ LOGO_CID = "smartparking-logo"
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
-DEFAULT_PORTAL_URL = "https://smartparkingsolutions.com"
+DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
 
 EMOJI_PARKING = "\U0001F17F\uFE0F"
 EMOJI_CHECK = "\u2705"
