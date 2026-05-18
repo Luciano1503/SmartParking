@@ -2,7 +2,15 @@ class AuthRepository:
     @staticmethod
     def find_user_verification_state(cur, correo: str):
         cur.execute(
-            "SELECT id, verificado FROM usuarios WHERE correo = %s;",
+            "SELECT id, verificado, tipo FROM usuarios WHERE correo = %s;",
+            (correo,),
+        )
+        return cur.fetchone()
+
+    @staticmethod
+    def find_user_account(cur, correo: str):
+        cur.execute(
+            "SELECT id, verificado, tipo FROM usuarios WHERE correo = %s;",
             (correo,),
         )
         return cur.fetchone()

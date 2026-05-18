@@ -122,10 +122,10 @@ class _LoginPageState extends State<LoginPage>
       _isLoading = true;
     });
 
-    final data = await _authService.login(correo, contrasenia);
+    final result = await _authService.login(correo, contrasenia);
 
-    if (data != null) {
-      SesionUsuario.usuario = data;
+    if (result.ok && result.data != null) {
+      SesionUsuario.usuario = result.data;
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -138,9 +138,9 @@ class _LoginPageState extends State<LoginPage>
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('login.invalid_credentials'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.message)));
       }
     }
   }

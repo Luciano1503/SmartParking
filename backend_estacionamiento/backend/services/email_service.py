@@ -1,5 +1,6 @@
 import os
 import smtplib
+import socket
 from email.header import Header
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -33,7 +34,9 @@ LOGO_CANDIDATES = [
 LOGO_PATH = next((path for path in LOGO_CANDIDATES if path.exists()), LOGO_CANDIDATES[0])
 LOGO_CID = "smartparking-logo"
 SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 465
+SMTP_SSL_PORT = 465
+SMTP_STARTTLS_PORT = 587
+SMTP_TIMEOUT_SECONDS = 8
 DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
 DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
 
@@ -66,7 +69,7 @@ HTML_CONFETTI = "&#127882;"
 
 
 def _smtp_credentials() -> tuple[str, str]:
-    load_dotenv(ENV_PATH, override=True)
+    load_dotenv(ENV_PATH, override=False)
     sender = os.getenv("SMTP_EMAIL", DEFAULT_SENDER).strip()
     password = os.getenv("SMTP_APP_PASSWORD", "").strip()
 
@@ -79,7 +82,7 @@ def _smtp_credentials() -> tuple[str, str]:
 
 
 def _portal_url() -> str:
-    load_dotenv(ENV_PATH, override=True)
+    load_dotenv(ENV_PATH, override=False)
     return os.getenv("SMARTPARKING_PORTAL_URL", DEFAULT_PORTAL_URL).strip()
 
 
@@ -95,13 +98,12 @@ def _attach_logo(msg: MIMEMultipart) -> None:
     msg.attach(logo)
 
 
-def _send_email(recipients: str | Iterable[str], subject: str, html_message: str) -> None:
-    sender, password = _smtp_credentials()
-    to_list = [recipients] if isinstance(recipients, str) else list(recipients)
-
-    if not to_list:
-        raise ValueError("No se indico destinatario para el correo.")
-
+def _build_message(
+    sender: str,
+    to_list: list[str],
+    subject: str,
+    html_message: str,
+) -> MIMEMultipart:
     msg = MIMEMultipart("related")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = sender
@@ -111,10 +113,55 @@ def _send_email(recipients: str | Iterable[str], subject: str, html_message: str
     alternative.attach(MIMEText(html_message.strip(), "html", "utf-8"))
     msg.attach(alternative)
     _attach_logo(msg)
+    return msg
 
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+
+def _send_with_ssl(sender: str, password: str, to_list: list[str], raw_message: str) -> None:
+    with smtplib.SMTP_SSL(
+        SMTP_HOST,
+        SMTP_SSL_PORT,
+        timeout=SMTP_TIMEOUT_SECONDS,
+    ) as server:
         server.login(sender, password)
-        server.sendmail(sender, to_list, msg.as_string())
+        server.sendmail(sender, to_list, raw_message)
+
+
+def _send_with_starttls(
+    sender: str,
+    password: str,
+    to_list: list[str],
+    raw_message: str,
+) -> None:
+    with smtplib.SMTP(
+        SMTP_HOST,
+        SMTP_STARTTLS_PORT,
+        timeout=SMTP_TIMEOUT_SECONDS,
+    ) as server:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(sender, password)
+        server.sendmail(sender, to_list, raw_message)
+
+
+def _send_email(recipients: str | Iterable[str], subject: str, html_message: str) -> None:
+    sender, password = _smtp_credentials()
+    to_list = [recipients] if isinstance(recipients, str) else list(recipients)
+
+    if not to_list:
+        raise ValueError("No se indico destinatario para el correo.")
+
+    raw_message = _build_message(sender, to_list, subject, html_message).as_string()
+    errors: list[str] = []
+
+    for send_attempt in (_send_with_ssl, _send_with_starttls):
+        try:
+            send_attempt(sender, password, to_list, raw_message)
+            return
+        except (smtplib.SMTPException, OSError, socket.timeout) as exc:
+            errors.append(f"{send_attempt.__name__}: {exc}")
+
+    raise RuntimeError("No se pudo enviar el correo. " + " | ".join(errors))
 
 
 def _header_html() -> str:

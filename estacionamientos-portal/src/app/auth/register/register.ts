@@ -1,5 +1,13 @@
 import { ChangeDetectorRef, Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
 import { CompanyRegisterRequest } from '../../models/auth.models';
@@ -17,6 +25,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 export class Register {
   registerForm: FormGroup;
   mensaje = '';
+  mensajeTipo: 'success' | 'warning' | 'error' | '' = '';
   cargando = false;
   legalModalOpen = false;
   legalTitle = '';
@@ -35,7 +44,7 @@ export class Register {
         apellido_representante: ['', [Validators.required, Validators.minLength(2)]],
         correo: ['', [Validators.required, Validators.email]],
         nombre_empresa: ['', [Validators.required]],
-        contrasenia: ['', [Validators.required, Validators.minLength(8)]],
+        contrasenia: ['', [Validators.required, Validators.minLength(8), this.passwordStrengthValidator()]],
         confirmar_contrasenia: ['', [Validators.required]],
         aceptar_terminos: [false, [Validators.requiredTrue]],
       },
@@ -45,6 +54,16 @@ export class Register {
     );
   }
 
+  passwordStrengthValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = String(control.value ?? '');
+      if (!value) return null;
+      const hasLetter = /[A-Za-z]/.test(value);
+      const hasNumber = /\d/.test(value);
+      return hasLetter && hasNumber ? null : { weakPassword: true };
+    };
+  }
+
   passwordMatchValidator(group: FormGroup) {
     return group.get('contrasenia')?.value === group.get('confirmar_contrasenia')?.value
       ? null
@@ -52,8 +71,13 @@ export class Register {
   }
 
   onSubmit(): void {
+    this.mensaje = '';
+    this.mensajeTipo = '';
+
     if (!this.registerForm.valid) {
-      alert(this.language.t('register.complete_fields'));
+      this.registerForm.markAllAsTouched();
+      this.mensaje = this.formErrorMessage();
+      this.mensajeTipo = 'error';
       return;
     }
 
@@ -64,22 +88,44 @@ export class Register {
       next: (res) => {
         if (res.status === 'error') {
           this.mensaje = res.detalle ?? this.language.t('register.error');
+          this.mensajeTipo = 'error';
           this.cargando = false;
           return;
         }
 
-        this.mensaje = res.correo_enviado === false
-          ? this.language.t('register.sent_email_warning')
-          : res.mensaje ?? this.language.t('register.sent');
+        this.mensaje =
+          res.correo_enviado === false
+            ? this.language.t('register.sent_email_warning')
+            : res.mensaje ?? this.language.t('register.sent');
+        this.mensajeTipo = res.correo_enviado === false ? 'warning' : 'success';
         this.cargando = false;
         this.registerForm.reset();
       },
       error: (err) => {
         console.error(err);
-        this.mensaje = this.language.t('register.error');
+        this.mensaje =
+          err?.error?.detail ??
+          err?.error?.detalle ??
+          err?.error?.error ??
+          this.language.t('register.timeout_error');
+        this.mensajeTipo = 'error';
         this.cargando = false;
       },
     });
+  }
+
+  formErrorMessage(): string {
+    const password = this.registerForm.get('contrasenia');
+    const confirm = this.registerForm.get('confirmar_contrasenia');
+    const terms = this.registerForm.get('aceptar_terminos');
+
+    if (password?.hasError('minlength')) return this.language.t('register.password_min');
+    if (password?.hasError('weakPassword')) return this.language.t('register.password_weak');
+    if (this.registerForm.hasError('mismatch') && confirm?.touched) {
+      return this.language.t('register.password_mismatch');
+    }
+    if (terms?.invalid) return this.language.t('register.accept_terms_required');
+    return this.language.t('register.complete_fields');
   }
 
   async openLegal(type: 'terms' | 'privacy', event: Event): Promise<void> {

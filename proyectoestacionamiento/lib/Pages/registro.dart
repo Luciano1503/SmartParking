@@ -86,11 +86,23 @@ class _RegisterPageState extends State<RegisterPage> {
                               return;
                             }
 
+                            final emailValido = RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                            ).hasMatch(correo);
+                            if (!emailValido) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Ingresa un correo valido.'),
+                                ),
+                              );
+                              return;
+                            }
+
                             setState(() {
                               _isLoading = true;
                             });
 
-                            final exito = await _authService.registrarUsuario(
+                            final result = await _authService.registrarUsuario(
                               correo,
                             );
 
@@ -100,7 +112,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               _isLoading = false;
                             });
 
-                            if (exito) {
+                            if (result.ok) {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -110,9 +122,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(context.tr('register.error')),
-                                ),
+                                SnackBar(content: Text(result.message)),
                               );
                             }
                           },

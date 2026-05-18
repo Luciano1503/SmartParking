@@ -19,8 +19,10 @@ def registrar_usuario(usuario: UsuarioRegistro):
         return AuthService.registrar_usuario(usuario.correo)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Error interno: {str(exc)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(exc)}")
 
 
 @router.post("/verificar")
@@ -30,7 +32,7 @@ def verificar_usuario(data: UsuarioVerificacion):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Error interno: {str(exc)}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(exc)}")
 
 
 @router.post("/formulario")

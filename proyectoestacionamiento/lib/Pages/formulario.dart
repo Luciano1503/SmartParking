@@ -111,7 +111,7 @@ class _FormularioPageState extends State<FormularioPage> {
           "${_placaControllers[0].text}${_placaControllers[1].text}${_placaControllers[2].text}-${_placaControllers[3].text}${_placaControllers[4].text}${_placaControllers[5].text}"
               .toUpperCase();
 
-      final exito = await _authService.completarFormulario(
+      final result = await _authService.completarFormulario(
         widget.correo,
         _nombreController.text,
         _apellidoController.text,
@@ -125,16 +125,16 @@ class _FormularioPageState extends State<FormularioPage> {
 
       if (!mounted) return;
 
-      if (exito) {
-        final data = await _authService.login(
+      if (result.ok) {
+        final loginResult = await _authService.login(
           widget.correo,
           _passwordController.text,
         );
 
         if (!mounted) return;
 
-        if (data != null) {
-          SesionUsuario.usuario = data;
+        if (loginResult.ok && loginResult.data != null) {
+          SesionUsuario.usuario = loginResult.data;
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => const MapaPage()),
@@ -144,18 +144,18 @@ class _FormularioPageState extends State<FormularioPage> {
           setState(() {
             _isLoading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.tr('form.success_manual'))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loginResult.message)));
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } else {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('form.register_error'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.message)));
       }
     }
   }
@@ -330,10 +330,17 @@ class _FormularioPageState extends State<FormularioPage> {
                               context.tr('form.password'),
                               Icons.lock_outline_rounded,
                             ),
-                            validator: (value) =>
-                                value == null || value.length < 8
-                                ? context.tr('form.min_chars')
-                                : null,
+                            validator: (value) {
+                              final password = value ?? '';
+                              if (password.length < 8) {
+                                return context.tr('form.min_chars');
+                              }
+                              if (!RegExp(r'[A-Za-z]').hasMatch(password) ||
+                                  !RegExp(r'\d').hasMatch(password)) {
+                                return 'Debe incluir letras y numeros';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

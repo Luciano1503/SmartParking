@@ -104,7 +104,7 @@ class _ValidacionPageState extends State<ValidacionPage>
       _isLoading = true;
     });
 
-    final exito = await _authService.verificarCodigo(
+    final result = await _authService.verificarCodigo(
       widget.correo,
       _codigoController.text,
     );
@@ -115,7 +115,7 @@ class _ValidacionPageState extends State<ValidacionPage>
       _isLoading = false;
     });
 
-    if (exito) {
+    if (result.ok) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -123,9 +123,9 @@ class _ValidacionPageState extends State<ValidacionPage>
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('validation.invalid_code'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
     }
   }
 
@@ -183,8 +183,7 @@ class _ValidacionPageState extends State<ValidacionPage>
                             GradientActionButton(
                               label: context.tr('validation.validate_user'),
                               icon: Icons.verified_rounded,
-                              isLoading:
-                                  _isLoading,
+                              isLoading: _isLoading,
                               onPressed: _validarCodigo,
                             ),
                             const SizedBox(height: 24),

@@ -58,10 +58,16 @@ const translations: Record<AppLanguage, TranslationMap> = {
     'register.hero_description':
       'El proceso de validación es riguroso para garantizar la seguridad de la red. En menos de 24 horas recibirás una respuesta.',
     'register.complete_fields': 'Por favor, completa correctamente todos los campos.',
+    'register.password_min': 'La contrasena debe tener minimo 8 caracteres.',
+    'register.password_weak': 'La contrasena debe incluir letras y numeros.',
+    'register.password_mismatch': 'Las contrasenas no coinciden.',
+    'register.accept_terms_required': 'Debes aceptar los terminos y la politica de privacidad.',
     'register.sent': 'Solicitud enviada correctamente.',
     'register.sent_email_warning':
-      'Solicitud registrada, pero no se pudo enviar el correo de confirmación. Revisa la configuración SMTP.',
+      'Solicitud registrada, pero no se pudo enviar el correo de confirmacion. Revisa la configuracion SMTP.',
     'register.error': 'Error al enviar la solicitud. Intenta de nuevo.',
+    'register.timeout_error':
+      'El servidor demoro demasiado en responder. Intenta nuevamente en unos segundos.',
 
     'parking.local_company': 'Empresa Local',
     'parking.verified_partner': 'Socio Verificado',
@@ -202,10 +208,16 @@ const translations: Record<AppLanguage, TranslationMap> = {
     'register.hero_description':
       'The validation process is rigorous to keep the network secure. You will receive a response in less than 24 hours.',
     'register.complete_fields': 'Please complete all fields correctly.',
+    'register.password_min': 'Password must have at least 8 characters.',
+    'register.password_weak': 'Password must include letters and numbers.',
+    'register.password_mismatch': 'Passwords do not match.',
+    'register.accept_terms_required': 'You must accept the terms and privacy policy.',
     'register.sent': 'Request sent successfully.',
     'register.sent_email_warning':
       'Request saved, but the confirmation email could not be sent. Check the SMTP settings.',
     'register.error': 'Could not send the request. Please try again.',
+    'register.timeout_error':
+      'The server took too long to respond. Please try again in a few seconds.',
 
     'parking.local_company': 'Local Company',
     'parking.verified_partner': 'Verified Partner',
