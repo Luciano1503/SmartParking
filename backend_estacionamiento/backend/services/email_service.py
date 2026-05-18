@@ -34,9 +34,10 @@ LOGO_CANDIDATES = [
 ]
 LOGO_PATH = next((path for path in LOGO_CANDIDATES if path.exists()), LOGO_CANDIDATES[0])
 LOGO_CID = "smartparking-logo"
-SMTP_HOST = "smtp.gmail.com"
-SMTP_SSL_PORT = 465
-SMTP_STARTTLS_PORT = 587
+DEFAULT_SMTP_HOST = "smtp.gmail.com"
+DEFAULT_SMTP_PORTS = [465, 587]
+DEFAULT_MAILTRAP_HOST = "sandbox.smtp.mailtrap.io"
+DEFAULT_MAILTRAP_PORTS = [2525, 587, 465]
 SMTP_TIMEOUT_SECONDS = 8
 DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
 DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
@@ -80,17 +81,49 @@ def _email_provider() -> str:
     return os.getenv("EMAIL_PROVIDER", "auto").strip().lower()
 
 
-def _smtp_credentials() -> tuple[str, str]:
+def _parse_smtp_ports(provider: str, host: str) -> list[int]:
+    port_value = os.getenv("SMTP_PORT", "").strip()
+    if port_value:
+        return [int(port_value)]
+
+    if provider == "mailtrap" or "mailtrap" in host:
+        return DEFAULT_MAILTRAP_PORTS
+
+    return DEFAULT_SMTP_PORTS
+
+
+def _smtp_settings() -> dict:
     _load_email_env()
-    sender = os.getenv("SMTP_EMAIL", DEFAULT_SENDER).strip()
-    password = os.getenv("SMTP_APP_PASSWORD", "").strip()
+    provider = _email_provider()
+    default_host = DEFAULT_MAILTRAP_HOST if provider == "mailtrap" else DEFAULT_SMTP_HOST
+    host = os.getenv("SMTP_HOST", default_host).strip()
+    sender = (
+        os.getenv("SMTP_FROM", "")
+        or os.getenv("MAIL_FROM", "")
+        or os.getenv("SMTP_EMAIL", "")
+        or DEFAULT_SENDER
+    ).strip()
+    username = (
+        os.getenv("SMTP_USER", "")
+        or os.getenv("SMTP_USERNAME", "")
+        or os.getenv("SMTP_EMAIL", "")
+    ).strip()
+    password = (os.getenv("SMTP_PASSWORD", "") or os.getenv("SMTP_APP_PASSWORD", "")).strip()
 
     if not sender:
-        raise RuntimeError("Falta SMTP_EMAIL en las variables de entorno.")
+        raise RuntimeError("Falta SMTP_FROM o SMTP_EMAIL en las variables de entorno.")
+    if not username:
+        raise RuntimeError("Falta SMTP_USER o SMTP_EMAIL en las variables de entorno.")
     if not password:
-        raise RuntimeError("Falta SMTP_APP_PASSWORD en las variables de entorno.")
+        raise RuntimeError("Falta SMTP_PASSWORD o SMTP_APP_PASSWORD en las variables de entorno.")
 
-    return sender, password
+    return {
+        "host": host,
+        "ports": _parse_smtp_ports(provider, host),
+        "sender": sender,
+        "username": username,
+        "password": password,
+    }
 
 
 def _portal_url() -> str:
@@ -110,11 +143,26 @@ def _uses_http_email() -> bool:
 
 def email_delivery_status() -> dict:
     provider = _email_provider()
+    smtp_host = os.getenv(
+        "SMTP_HOST",
+        DEFAULT_MAILTRAP_HOST if provider == "mailtrap" else DEFAULT_SMTP_HOST,
+    ).strip()
     return {
         "provider": provider,
         "resend_configurado": _resend_configured(),
-        "smtp_configurado": bool(os.getenv("SMTP_APP_PASSWORD", "").strip()),
-        "recomendado_railway": "resend" if not _resend_configured() else "ok",
+        "smtp_host": smtp_host,
+        "smtp_port": os.getenv("SMTP_PORT", "").strip() or None,
+        "smtp_usuario_configurado": bool(
+            (os.getenv("SMTP_USER", "") or os.getenv("SMTP_EMAIL", "")).strip()
+        ),
+        "smtp_password_configurado": bool(
+            (os.getenv("SMTP_PASSWORD", "") or os.getenv("SMTP_APP_PASSWORD", "")).strip()
+        ),
+        "recomendado_railway": (
+            "ok"
+            if provider in {"mailtrap", "smtp"} or _resend_configured()
+            else "resend_o_mailtrap"
+        ),
     }
 
 
@@ -148,32 +196,73 @@ def _build_message(
     return msg
 
 
-def _send_with_ssl(sender: str, password: str, to_list: list[str], raw_message: str) -> None:
+def _send_with_ssl(
+    host: str,
+    port: int,
+    sender: str,
+    username: str,
+    password: str,
+    to_list: list[str],
+    raw_message: str,
+) -> None:
     with smtplib.SMTP_SSL(
-        SMTP_HOST,
-        SMTP_SSL_PORT,
+        host,
+        port,
         timeout=SMTP_TIMEOUT_SECONDS,
     ) as server:
-        server.login(sender, password)
+        server.login(username, password)
         server.sendmail(sender, to_list, raw_message)
 
 
 def _send_with_starttls(
+    host: str,
+    port: int,
     sender: str,
+    username: str,
     password: str,
     to_list: list[str],
     raw_message: str,
 ) -> None:
     with smtplib.SMTP(
-        SMTP_HOST,
-        SMTP_STARTTLS_PORT,
+        host,
+        port,
         timeout=SMTP_TIMEOUT_SECONDS,
     ) as server:
         server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(sender, password)
+        if server.has_extn("starttls"):
+            server.starttls()
+            server.ehlo()
+        server.login(username, password)
         server.sendmail(sender, to_list, raw_message)
+
+
+def _send_with_smtp_port(
+    settings: dict,
+    port: int,
+    to_list: list[str],
+    raw_message: str,
+) -> None:
+    if port == 465:
+        _send_with_ssl(
+            settings["host"],
+            port,
+            settings["sender"],
+            settings["username"],
+            settings["password"],
+            to_list,
+            raw_message,
+        )
+        return
+
+    _send_with_starttls(
+        settings["host"],
+        port,
+        settings["sender"],
+        settings["username"],
+        settings["password"],
+        to_list,
+        raw_message,
+    )
 
 
 def _send_with_resend(to_list: list[str], subject: str, html_message: str) -> None:
@@ -231,15 +320,20 @@ def _send_email(recipients: str | Iterable[str], subject: str, html_message: str
     if provider == "resend":
         raise RuntimeError("No se pudo enviar el correo. Falta RESEND_API_KEY en Railway.")
 
-    sender, password = _smtp_credentials()
-    raw_message = _build_message(sender, to_list, subject, html_message).as_string()
+    settings = _smtp_settings()
+    raw_message = _build_message(
+        settings["sender"],
+        to_list,
+        subject,
+        html_message,
+    ).as_string()
 
-    for send_attempt in (_send_with_ssl, _send_with_starttls):
+    for port in settings["ports"]:
         try:
-            send_attempt(sender, password, to_list, raw_message)
+            _send_with_smtp_port(settings, port, to_list, raw_message)
             return
         except (smtplib.SMTPException, OSError, socket.timeout) as exc:
-            errors.append(f"{send_attempt.__name__}: {exc}")
+            errors.append(f"smtp {settings['host']}:{port}: {exc}")
 
     raise RuntimeError(
         "No se pudo enviar el correo. "
