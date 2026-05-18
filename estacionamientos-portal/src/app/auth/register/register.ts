@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -27,6 +27,7 @@ export class Register {
     private readonly fb: FormBuilder,
     private readonly authApi: AuthApiService,
     private readonly language: LanguageService,
+    private readonly cdr: ChangeDetectorRef,
   ) {
     this.registerForm = this.fb.group(
       {
@@ -92,6 +93,7 @@ export class Register {
     this.legalContent = this.language.t('legal.loading');
     this.legalLoading = true;
     this.legalModalOpen = true;
+    this.cdr.detectChanges();
 
     try {
       const response = await fetch(`/legal/${fileName}`, { cache: 'no-store' });
@@ -102,10 +104,13 @@ export class Register {
       this.legalContent = this.language.t('legal.load_error');
     } finally {
       this.legalLoading = false;
+      this.cdr.detectChanges();
     }
   }
 
   closeLegal(): void {
     this.legalModalOpen = false;
+    this.legalContent = '';
+    this.cdr.detectChanges();
   }
 }
