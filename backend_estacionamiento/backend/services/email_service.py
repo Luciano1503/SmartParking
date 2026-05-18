@@ -1,3 +1,4 @@
+import base64
 import os
 import re
 import smtplib
@@ -44,6 +45,8 @@ DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
 DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
 RESEND_API_URL = "https://api.resend.com/emails"
 MAILTRAP_API_URL = "https://send.api.mailtrap.io/api/send"
+GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 HTTP_TIMEOUT_SECONDS = 20
 
 EMOJI_PARKING = "\U0001F17F\uFE0F"
@@ -83,6 +86,8 @@ def _email_provider() -> str:
     provider = os.getenv("EMAIL_PROVIDER", "auto").strip().lower().replace("-", "_")
     if provider in {"mailtrapapi", "mailtrap_api"}:
         return "mailtrap_api"
+    if provider in {"gmailapi", "gmail_api"}:
+        return "gmail_api"
     return provider
 
 
@@ -146,11 +151,24 @@ def _mailtrap_api_configured() -> bool:
     return bool(os.getenv("MAILTRAP_API_TOKEN", "").strip())
 
 
+def _gmail_api_configured() -> bool:
+    _load_email_env()
+    required = (
+        os.getenv("GMAIL_CLIENT_ID", "").strip(),
+        os.getenv("GMAIL_CLIENT_SECRET", "").strip(),
+        os.getenv("GMAIL_REFRESH_TOKEN", "").strip(),
+    )
+    return all(required)
+
+
 def _uses_http_email() -> bool:
     provider = _email_provider()
     return (
-        provider in {"resend", "mailtrap_api"}
-        or (provider == "auto" and (_resend_configured() or _mailtrap_api_configured()))
+        provider in {"resend", "mailtrap_api", "gmail_api"}
+        or (
+            provider == "auto"
+            and (_gmail_api_configured() or _resend_configured() or _mailtrap_api_configured())
+        )
     )
 
 
@@ -162,6 +180,7 @@ def email_delivery_status() -> dict:
     ).strip()
     return {
         "provider": provider,
+        "gmail_api_configurado": _gmail_api_configured(),
         "resend_configurado": _resend_configured(),
         "mailtrap_api_configurado": _mailtrap_api_configured(),
         "smtp_host": smtp_host,
@@ -174,10 +193,11 @@ def email_delivery_status() -> dict:
         ),
         "recomendado_railway": (
             "ok"
-            if provider in {"mailtrap", "mailtrap_api", "smtp"}
+            if provider in {"gmail_api", "mailtrap", "mailtrap_api", "smtp"}
+            or _gmail_api_configured()
             or _resend_configured()
             or _mailtrap_api_configured()
-            else "resend_o_mailtrap"
+            else "gmail_api_resend_o_mailtrap"
         ),
     }
 
@@ -369,6 +389,72 @@ def _send_with_mailtrap_api(to_list: list[str], subject: str, html_message: str)
         )
 
 
+def _gmail_settings() -> dict:
+    _load_email_env()
+    settings = {
+        "client_id": os.getenv("GMAIL_CLIENT_ID", "").strip(),
+        "client_secret": os.getenv("GMAIL_CLIENT_SECRET", "").strip(),
+        "refresh_token": os.getenv("GMAIL_REFRESH_TOKEN", "").strip(),
+        "sender": (
+            os.getenv("GMAIL_SENDER", "")
+            or os.getenv("SMTP_EMAIL", "")
+            or DEFAULT_SENDER
+        ).strip(),
+    }
+
+    missing = [key for key, value in settings.items() if not value]
+    if missing:
+        raise RuntimeError("Faltan variables Gmail API: " + ", ".join(missing))
+
+    return settings
+
+
+def _refresh_gmail_access_token(settings: dict) -> str:
+    response = requests.post(
+        GMAIL_TOKEN_URL,
+        data={
+            "client_id": settings["client_id"],
+            "client_secret": settings["client_secret"],
+            "refresh_token": settings["refresh_token"],
+            "grant_type": "refresh_token",
+        },
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Google rechazo el refresh token ({response.status_code}): {response.text}"
+        )
+
+    access_token = response.json().get("access_token")
+    if not access_token:
+        raise RuntimeError("Google no devolvio access_token.")
+
+    return access_token
+
+
+def _send_with_gmail_api(to_list: list[str], subject: str, html_message: str) -> None:
+    settings = _gmail_settings()
+    access_token = _refresh_gmail_access_token(settings)
+    message = _build_message(settings["sender"], to_list, subject, html_message)
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+    response = requests.post(
+        GMAIL_SEND_URL,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
+        json={"raw": raw_message},
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Gmail API rechazo el correo ({response.status_code}): {response.text}"
+        )
+
+
 def _send_email(recipients: str | Iterable[str], subject: str, html_message: str) -> None:
     to_list = [recipients] if isinstance(recipients, str) else list(recipients)
 
@@ -377,6 +463,20 @@ def _send_email(recipients: str | Iterable[str], subject: str, html_message: str
 
     provider = _email_provider()
     errors: list[str] = []
+
+    if provider in {"auto", "gmail_api"} and _gmail_api_configured():
+        try:
+            _send_with_gmail_api(to_list, subject, html_message)
+            return
+        except Exception as exc:
+            errors.append(f"gmail_api: {exc}")
+            if provider == "gmail_api":
+                raise RuntimeError("No se pudo enviar el correo. " + " | ".join(errors)) from exc
+
+    if provider == "gmail_api":
+        raise RuntimeError(
+            "No se pudo enviar el correo. Faltan variables de Gmail API en Railway."
+        )
 
     if provider in {"auto", "mailtrap_api"} and _mailtrap_api_configured():
         try:
