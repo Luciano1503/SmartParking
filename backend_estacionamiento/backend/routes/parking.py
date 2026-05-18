@@ -71,6 +71,14 @@ def obtener_sensor(sensor_codigo: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/sensores")
+def listar_sensores():
+    try:
+        return ParkingService.listar_sensores()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.post("/sensor/estado")
 async def actualizar_estado_sensor(data: SensorStatusSchema):
     try:

@@ -48,6 +48,7 @@ BACKEND_SENSOR_STATUS_URL = os.getenv(
     f"{BACKEND_BASE_URL}/parking/sensor/estado",
 )
 BACKEND_API_TIMEOUT = float(os.getenv("BACKEND_API_TIMEOUT", "8"))
+REQUIRED_IOT_VERSION = "railway-iot-gateway"
 SYNC_MODE = os.getenv("ARDUINO_SYNC_MODE", "api").strip().lower()
 if SYNC_MODE not in {"api", "db"}:
     SYNC_MODE = "api"
@@ -157,8 +158,73 @@ def obtener_estado_actual_db(conn, espacio_id):
     return _estado_normalizado(resultado["estado_actual"]) if resultado else None
 
 
+def verificar_backend_iot():
+    try:
+        root = requests.get(f"{BACKEND_BASE_URL}/", timeout=BACKEND_API_TIMEOUT)
+        root.raise_for_status()
+        version = root.json().get("version", "sin version")
+    except Exception as exc:
+        print(f"   [ERROR] No se pudo consultar la version del backend: {exc}")
+        return False
+
+    if REQUIRED_IOT_VERSION not in version:
+        print("\n   [ERROR] Railway esta ejecutando una version antigua del backend.")
+        print(f"   Version activa: {version}")
+        print(f"   Version esperada: {REQUIRED_IOT_VERSION}")
+        print("   Solucion: haz Redeploy del backend en Railway con el ultimo commit.")
+        return False
+
+    try:
+        response = requests.get(
+            f"{BACKEND_BASE_URL}/openapi.json",
+            timeout=BACKEND_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        paths = response.json().get("paths", {})
+    except Exception as exc:
+        print(f"   [ERROR] No se pudo validar OpenAPI del backend: {exc}")
+        return False
+
+    if "/parking/sensor/{sensor_codigo}" not in paths or "/parking/sensor/estado" not in paths:
+        print("\n   [ERROR] El backend activo no tiene los endpoints IoT del Arduino.")
+        print("   Solucion: redeploya Railway con el ultimo commit de GitHub.")
+        return False
+
+    return True
+
+
 def _sensor_lookup_url(sensor_codigo):
     return f"{BACKEND_BASE_URL}/parking/sensor/{sensor_codigo}"
+
+
+def imprimir_sensores_disponibles():
+    try:
+        response = requests.get(
+            f"{BACKEND_BASE_URL}/parking/sensores",
+            timeout=BACKEND_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        sensores = response.json()
+    except Exception:
+        return
+
+    if not sensores:
+        print("   [INFO] No hay sensores registrados en la base de datos de Railway.")
+        return
+
+    print("   [INFO] Sensores disponibles en Railway:")
+    for sensor in sensores[:20]:
+        print(
+            "      - "
+            f"{sensor.get('sensor_codigo')} | "
+            f"{sensor.get('estacionamiento')} | "
+            f"{sensor.get('nivel')} | "
+            f"{sensor.get('zona')} | "
+            f"Espacio {sensor.get('espacio')} | "
+            f"Estado {sensor.get('estado_actual')}"
+        )
+    if len(sensores) > 20:
+        print(f"      ... y {len(sensores) - 20} sensores mas")
 
 
 def obtener_sensor_backend(sensor_codigo):
@@ -170,7 +236,14 @@ def obtener_sensor_backend(sensor_codigo):
         response.raise_for_status()
         data = response.json()
     except requests.RequestException as exc:
-        print(f"   [ERROR] No se pudo consultar el sensor en Railway: {exc}")
+        status_code = getattr(exc.response, "status_code", None)
+        if status_code == 404:
+            print(
+                f"   [ERROR] El sensor {sensor_codigo} no existe en la base de datos de Railway."
+            )
+            imprimir_sensores_disponibles()
+        else:
+            print(f"   [ERROR] No se pudo consultar el sensor en Railway: {exc}")
         return None
     except ValueError as exc:
         print(f"   [ERROR] Respuesta invalida del backend: {exc}")
@@ -418,6 +491,12 @@ def iniciar_puente():
             else:
                 print("\n[API] Conectando con backend en Railway...")
                 print(f"   URL: {BACKEND_BASE_URL}")
+
+                if not verificar_backend_iot():
+                    print("\n[ERROR] Backend IoT no disponible. Reintentando en 10s...")
+                    time.sleep(10)
+                    continue
+
                 print(f"\n[SENSOR] Buscando espacio para sensor: {SENSOR_CODIGO}")
                 sensor_info = obtener_sensor_backend(SENSOR_CODIGO)
                 if not sensor_info:

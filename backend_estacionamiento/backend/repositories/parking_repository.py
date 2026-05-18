@@ -145,6 +145,30 @@ class ParkingRepository:
         return cur.fetchone()
 
     @staticmethod
+    def list_sensors(cur):
+        cur.execute(
+            """
+            SELECT
+                e.sensor_codigo,
+                e.id AS espacio_id,
+                e.codigo AS espacio,
+                e.estado_actual,
+                z.nombre AS zona,
+                n.nombre AS nivel,
+                est.nombre AS estacionamiento
+            FROM espacio e
+            JOIN zona z ON e.zona_id = z.id
+            JOIN nivel n ON z.nivel_id = n.id
+            JOIN estacionamiento est ON n.estacionamiento_id = est.id
+            WHERE e.sensor_codigo IS NOT NULL
+              AND TRIM(e.sensor_codigo) <> ''
+            ORDER BY e.sensor_codigo
+            LIMIT 300;
+            """
+        )
+        return cur.fetchall()
+
+    @staticmethod
     def update_space_status(cur, espacio_id: int, nuevo_estado: str, fecha):
         cur.execute(
             """

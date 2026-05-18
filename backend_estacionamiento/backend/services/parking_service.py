@@ -117,6 +117,13 @@ class ParkingService:
         }
 
     @staticmethod
+    def listar_sensores():
+        with db_cursor() as (_, cur):
+            sensores = ParkingRepository.list_sensors(cur)
+
+        return [dict(sensor) for sensor in sensores]
+
+    @staticmethod
     def actualizar_estado_sensor(
         sensor_codigo: str,
         estado: str,
