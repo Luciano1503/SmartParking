@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Iterable
 
+import requests
 from dotenv import load_dotenv
 
 CURRENT_FILE = Path(__file__).resolve()
@@ -39,6 +40,8 @@ SMTP_STARTTLS_PORT = 587
 SMTP_TIMEOUT_SECONDS = 8
 DEFAULT_SENDER = "smartparkingsolutions0@gmail.com"
 DEFAULT_PORTAL_URL = "https://smart-parking-mlma.vercel.app/login"
+RESEND_API_URL = "https://api.resend.com/emails"
+HTTP_TIMEOUT_SECONDS = 20
 
 EMOJI_PARKING = "\U0001F17F\uFE0F"
 EMOJI_CHECK = "\u2705"
@@ -68,8 +71,17 @@ HTML_RAISED = "&#128588;"
 HTML_CONFETTI = "&#127882;"
 
 
-def _smtp_credentials() -> tuple[str, str]:
+def _load_email_env() -> None:
     load_dotenv(ENV_PATH, override=False)
+
+
+def _email_provider() -> str:
+    _load_email_env()
+    return os.getenv("EMAIL_PROVIDER", "auto").strip().lower()
+
+
+def _smtp_credentials() -> tuple[str, str]:
+    _load_email_env()
     sender = os.getenv("SMTP_EMAIL", DEFAULT_SENDER).strip()
     password = os.getenv("SMTP_APP_PASSWORD", "").strip()
 
@@ -82,8 +94,28 @@ def _smtp_credentials() -> tuple[str, str]:
 
 
 def _portal_url() -> str:
-    load_dotenv(ENV_PATH, override=False)
+    _load_email_env()
     return os.getenv("SMARTPARKING_PORTAL_URL", DEFAULT_PORTAL_URL).strip()
+
+
+def _resend_configured() -> bool:
+    _load_email_env()
+    return bool(os.getenv("RESEND_API_KEY", "").strip())
+
+
+def _uses_http_email() -> bool:
+    provider = _email_provider()
+    return provider == "resend" or (provider == "auto" and _resend_configured())
+
+
+def email_delivery_status() -> dict:
+    provider = _email_provider()
+    return {
+        "provider": provider,
+        "resend_configurado": _resend_configured(),
+        "smtp_configurado": bool(os.getenv("SMTP_APP_PASSWORD", "").strip()),
+        "recomendado_railway": "resend" if not _resend_configured() else "ok",
+    }
 
 
 def _attach_logo(msg: MIMEMultipart) -> None:
@@ -144,15 +176,63 @@ def _send_with_starttls(
         server.sendmail(sender, to_list, raw_message)
 
 
+def _send_with_resend(to_list: list[str], subject: str, html_message: str) -> None:
+    _load_email_env()
+    api_key = os.getenv("RESEND_API_KEY", "").strip()
+    from_email = os.getenv(
+        "RESEND_FROM",
+        "SmartParking Solutions <onboarding@resend.dev>",
+    ).strip()
+
+    if not api_key:
+        raise RuntimeError("Falta RESEND_API_KEY en Railway.")
+    if not from_email:
+        raise RuntimeError("Falta RESEND_FROM en Railway.")
+
+    response = requests.post(
+        RESEND_API_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": from_email,
+            "to": to_list,
+            "subject": subject,
+            "html": html_message.strip(),
+        },
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Resend rechazo el correo ({response.status_code}): {response.text}"
+        )
+
+
 def _send_email(recipients: str | Iterable[str], subject: str, html_message: str) -> None:
-    sender, password = _smtp_credentials()
     to_list = [recipients] if isinstance(recipients, str) else list(recipients)
 
     if not to_list:
         raise ValueError("No se indico destinatario para el correo.")
 
-    raw_message = _build_message(sender, to_list, subject, html_message).as_string()
+    provider = _email_provider()
     errors: list[str] = []
+
+    if provider in {"auto", "resend"} and _resend_configured():
+        try:
+            _send_with_resend(to_list, subject, html_message)
+            return
+        except Exception as exc:
+            errors.append(f"resend: {exc}")
+            if provider == "resend":
+                raise RuntimeError("No se pudo enviar el correo. " + " | ".join(errors)) from exc
+
+    if provider == "resend":
+        raise RuntimeError("No se pudo enviar el correo. Falta RESEND_API_KEY en Railway.")
+
+    sender, password = _smtp_credentials()
+    raw_message = _build_message(sender, to_list, subject, html_message).as_string()
 
     for send_attempt in (_send_with_ssl, _send_with_starttls):
         try:
@@ -161,11 +241,26 @@ def _send_email(recipients: str | Iterable[str], subject: str, html_message: str
         except (smtplib.SMTPException, OSError, socket.timeout) as exc:
             errors.append(f"{send_attempt.__name__}: {exc}")
 
-    raise RuntimeError("No se pudo enviar el correo. " + " | ".join(errors))
+    raise RuntimeError(
+        "No se pudo enviar el correo. "
+        + " | ".join(errors)
+        + " | En Railway usa EMAIL_PROVIDER=resend con RESEND_API_KEY."
+    )
 
 
 def _header_html() -> str:
-    if LOGO_PATH.exists():
+    _load_email_env()
+    public_logo_url = os.getenv("SMARTPARKING_EMAIL_LOGO_URL", "").strip()
+    if public_logo_url:
+        return f'''
+                <tr>
+                  <td style="background:#ffffff;padding:22px 32px;text-align:center;border-bottom:1px solid #eef2f7;">
+                    <img src="{public_logo_url}" width="280" alt="SmartParking Solutions" style="display:block;margin:0 auto;width:280px;max-width:92%;height:auto;border:0;outline:none;text-decoration:none;border-radius:8px;">
+                  </td>
+                </tr>
+        '''
+
+    if LOGO_PATH.exists() and not _uses_http_email():
         return f'''
                 <tr>
                   <td style="background:#ffffff;padding:22px 32px;text-align:center;border-bottom:1px solid #eef2f7;">

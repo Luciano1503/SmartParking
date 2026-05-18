@@ -8,9 +8,10 @@ from starlette.websockets import WebSocketState
 
 from database.session import db_cursor
 from routes import auth, parking
+from services.email_service import email_delivery_status
 from services.realtime_service import manager
 
-APP_VERSION = "railway-iot-gateway-email-flow-2026-05-18"
+APP_VERSION = "railway-iot-gateway-email-api-2026-05-18"
 
 app = FastAPI()
 _realtime_db_task: asyncio.Task | None = None
@@ -96,6 +97,7 @@ def root():
     return {
         "mensaje": "Backend de SmartParking Online con WebSockets",
         "version": APP_VERSION,
+        "email": email_delivery_status(),
     }
 
 
